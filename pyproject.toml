@@ -40,3 +40,9 @@ dev = [
     "notebook",
     "ipykernel"
 ]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"samosa_waveform_model.lut" = ["*.txt"]
