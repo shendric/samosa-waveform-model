@@ -24,7 +24,7 @@ class SAMOSALookupTables(object):
         lut_folder = Path(__file__).parent / "lut"
         kwargs = dict(dtype='float', comments='#', delimiter=None)
 
-        print("Read LUTs from", lut_folder)
+        # print("Read LUTs from", lut_folder)
         self.f0 = np.genfromtxt(lut_folder / "LUT_F0.txt", **kwargs)
         self.f1 = np.genfromtxt(lut_folder / "LUT_F1.txt", **kwargs)
 
