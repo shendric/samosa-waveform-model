@@ -12,7 +12,7 @@ from typing import Dict, Optional, Literal
 
 from samosa_waveform_model.dataclasses import (SensorParameters, PlatformLocation, SARParameters,
                                                CONSTANTS, WaveformModelOutput, WaveformModelParameters)
-from samosa_waveform_model.lut import SAMOSALookupTables
+from samosa_waveform_model.lut import CS2_LOOKUP_TABLES, SAMOSALookupTables
 
 
 class ScenarioData(object):
@@ -103,7 +103,7 @@ class SAMOSAWaveformModel(object):
         self.weight_factor = weight_factor
         self.mode = mode
         self.mask_ranges = mask_ranges
-        self.lut = SAMOSALookupTables()
+        self.lut = CS2_LOOKUP_TABLES
         self.static_parameters = {}
         self.set_mode(self.mode)
 
