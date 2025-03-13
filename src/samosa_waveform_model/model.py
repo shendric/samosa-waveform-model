@@ -6,6 +6,8 @@
 
 __author__ = "Stefan Hendricks <stefan.hendricks@awi.de>"
 
+import warnings
+from warnings import warn
 import bottleneck as bn
 import numpy as np
 from typing import Dict, Optional, Literal
@@ -13,8 +15,20 @@ from typing import Dict, Optional, Literal
 from samosa_waveform_model.dataclasses import (SensorParameters, PlatformLocation, SARParameters,
                                                CONSTANTS, WaveformModelOutput, WaveformModelParameters)
 from samosa_waveform_model.lut import CS2_LOOKUP_TABLES
-from samosa_waveform_model.funcs import (compute_gl, compute_gamma0, compute_t_kappa, compute_f0, compute_f1,
-                                         ddm_mask_ranges)
+
+try:
+    from samosa_waveform_model.funcs import (compute_gl, compute_gamma0, compute_t_kappa, compute_f0, compute_f1,
+                                            ddm_mask_ranges)
+except ImportError:
+    msg = """
+    Could not import the compiled functions for the SAMOSA+ waveform model. 
+    Please install the compiled functions module func by running
+    'python setup.py build_ext --inplace
+    -> Using python implementation instead
+    """
+    warnings.warn(msg)
+    from samosa_waveform_model.funcs_py import (compute_gl, compute_gamma0, compute_t_kappa, compute_f0, compute_f1,
+                                            ddm_mask_ranges)
 
 
 class ScenarioData(object):
