@@ -7,7 +7,7 @@ def compute_gamma0(alpha_y, yp, alpha_x, nu, alt, xl, xp, yk):
     yk_ = yk[:, None]
     alt2 = alt ** 2
     return np.exp(
-        -alpha_y * yp ** 2 - alpha_x * (xl_ - xp) ** 2. - xl_ ** 2 * nu / alt2 -
+        -alpha_y * yp ** 2 - alpha_x * (xl_ - xp) ** 2 - xl_ ** 2 * nu / alt2 -
         (alpha_y + nu / alt2) * yk_ ** 2) * np.cosh(2. * alpha_y * yp * yk_)
 
 
@@ -21,9 +21,9 @@ def compute_t_kappa(z, dk, nu, alt, alpha_y, yp, ly):
     dk_positive_sqrt = np.sqrt(dk[dk_positive_idx])
 
     t_kappa[dk_positive_idx, :] = (
-            (1 + nu / ((alt ** 2) * alpha_y)) - yp / (ly * dk_positive_sqrt) * np.tanh(
-             2 * alpha_y * yp * ly * dk_positive_sqrt)[None, :]).T
-    t_kappa[dk_negative_idx, :] = (1 + nu / ((alt ** 2) * alpha_y)) - 2 * alpha_y * yp ** 2
+            (1. + nu / ((alt ** 2) * alpha_y)) - yp / (ly * dk_positive_sqrt) * np.tanh(
+             2. * alpha_y * yp * ly * dk_positive_sqrt)[None, :]).T
+    t_kappa[dk_negative_idx, :] = (1. + nu / ((alt ** 2) * alpha_y)) - 2. * alpha_y * yp ** 2
     return t_kappa
 
 

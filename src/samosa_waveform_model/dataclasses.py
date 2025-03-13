@@ -68,6 +68,14 @@ class Constants:
     def b_e(self) -> float:
         return self.R_e * np.sqrt(1. - self.ecc_e ** 2.)
 
+    @cached_property
+    def f0_csi_0(self) -> float:
+        return (1. / 2.) * (np.pi * 2 ** (3. / 4.)) / (2. * self.gamma_3_4)
+
+    @cached_property
+    def f1_csi_0(self) -> float:
+        return -(1. / 2.) * (2. ** (3. / 4.)) * self.gamma_3_4 / 2.
+
 
 CONSTANTS = Constants()
 
