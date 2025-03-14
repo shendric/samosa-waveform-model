@@ -16,19 +16,24 @@ from samosa_waveform_model.dataclasses import (SensorParameters, PlatformLocatio
                                                CONSTANTS, WaveformModelOutput, WaveformModelParameters)
 from samosa_waveform_model.lut import CS2_LOOKUP_TABLES
 
-try:
-    from samosa_waveform_model.funcs import (compute_gl, compute_gamma0, compute_t_kappa, compute_f0, compute_f1,
+
+from samosa_waveform_model.funcs_py import (compute_gl, compute_gamma0, compute_t_kappa, compute_f0, compute_f1,
                                             ddm_mask_ranges)
-except ImportError:
-    msg = """
-    Could not import the compiled functions for the SAMOSA+ waveform model. 
-    Please install the compiled functions module func by running
-    'python setup.py build_ext --inplace
-    -> Using python implementation instead
-    """
-    warnings.warn(msg)
-    from samosa_waveform_model.funcs_py import (compute_gl, compute_gamma0, compute_t_kappa, compute_f0, compute_f1,
-                                            ddm_mask_ranges)
+
+
+# try:
+#     from samosa_waveform_model.funcs import (compute_gl, compute_gamma0, compute_t_kappa, compute_f0, compute_f1,
+#                                             ddm_mask_ranges)
+# except ImportError:
+#     msg = """
+#     Could not import the compiled functions for the SAMOSA+ waveform model.
+#     Please install the compiled functions module func by running
+#     'python setup.py build_ext --inplace
+#     -> Using python implementation instead
+#     """
+#     warnings.warn(msg)
+#     from samosa_waveform_model.funcs_py import (compute_gl, compute_gamma0, compute_t_kappa, compute_f0, compute_f1,
+#                                             ddm_mask_ranges)
 
 
 class ScenarioData(object):
@@ -122,6 +127,7 @@ class SAMOSAWaveformModel(object):
         self.lut = CS2_LOOKUP_TABLES
         self.static_parameters = {}
         self.set_mode(self.mode)
+        self.generate_ddm_counter = 0
 
     def set_mode(self, mode_num: Literal[1, 2]) -> None:
         """
@@ -191,22 +197,18 @@ class SAMOSAWaveformModel(object):
 
         # --- Compute variables independent of waveform model parameters --->
         # NOTE: For repeated computations, these all need to be computed once
-
-        # Lx: along-track resolution size
-        # TODO: Add weighting (Lx, alpha, alpha_power changes)
-
         p = self.static_parameters
 
         dk = (tau * rp.bandwidth)
         yk = 0 * dk
-        yk[np.where(dk > 0)] = p["Ly"] * np.sqrt(dk[np.where(dk > 0)])
+        dk_positive = np.where(dk > 0)
+        yk[dk_positive] = p["Ly"] * np.sqrt(dk[dk_positive])
 
         sigma_s = (swh / (4. * p["Lz"]))
 
         # surface elevation standard deviation
         sigma_z = (swh / 4.)
 
-        # TODO: Add switch for weighted and fit steps (according to sampy)
         alpha_p, alpha_power = self.get_alpha_power(swh)
 
         gl = compute_gl(alpha_p, p["Lx"], p["Ly"], p["Lz"], beam_index, p["ls"], swh)
@@ -247,6 +249,8 @@ class SAMOSAWaveformModel(object):
         peak_power = bn.nanmax(waveform_power)
 
         waveform_model = wfm.amplitude_scale * (waveform_power/peak_power + wfm.thermal_noise)
+
+        self.generate_ddm_counter += 1
 
         # Compile the output
         return WaveformModelOutput(
@@ -293,6 +297,3 @@ class SAMOSAWaveformModel(object):
         p["csi_min_F1"] = np.min(lut.f1[:, 0])
 
         self.static_parameters = p
-
-
-
