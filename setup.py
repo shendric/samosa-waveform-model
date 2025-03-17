@@ -6,7 +6,7 @@ from setuptools.extension import Extension
 import numpy as np
 
 extensions = [
-    Extension("samosa_waveform_model.funcs", ["src/samosa_waveform_model/funcs.pyx"])
+    Extension("samosa_waveform_model.funcs_cy", ["src/samosa_waveform_model/funcs_cy.pyx"])
 ]
 
 setup(
