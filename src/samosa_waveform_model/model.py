@@ -9,7 +9,9 @@ __author__ = "Stefan Hendricks <stefan.hendricks@awi.de>"
 import warnings
 from warnings import warn
 import bottleneck as bn
+import pandas as pd
 import numpy as np
+from typing import Union
 from typing import Dict, Optional, Literal
 
 from samosa_waveform_model.dataclasses import (SensorParameters, PlatformLocation, SARParameters,
@@ -106,6 +108,7 @@ class SAMOSAWaveformModel(object):
             weight_factor: float = 1.4705,
             mask_ranges: bool = None,
             mode: Literal[1, 2] = 1,
+            collect_fit_params: bool = False
     ) -> None:
         """
         Initialize the forward model
@@ -127,6 +130,8 @@ class SAMOSAWaveformModel(object):
         self.lut = CS2_LOOKUP_TABLES
         self.static_parameters = {}
         self.set_mode(self.mode)
+        self.collect_fit_params = collect_fit_params
+        self.fit_params = []
         self.generate_ddm_counter = 0
 
     def set_mode(self, mode_num: Literal[1, 2]) -> None:
@@ -195,6 +200,12 @@ class SAMOSAWaveformModel(object):
         tau = self.scenario.rp.tau - wfm.epoch
         beam_index = self.scenario.sar.beam_index
 
+        # --- Collect the waveform model parameters if requested --->
+        # This is useful to restore the parameters variations
+        # in an optimization process
+        if self.collect_fit_params:
+            self.fit_params.append(wfm)
+
         # --- Compute variables independent of waveform model parameters --->
         # NOTE: For repeated computations, these all need to be computed once
         p = self.static_parameters
@@ -250,13 +261,15 @@ class SAMOSAWaveformModel(object):
 
         waveform_model = wfm.amplitude_scale * (waveform_power/peak_power + wfm.thermal_noise)
 
+        # waveform_model_scaled_power = amplitude_scale * (pr / np.nanmax(pr)) + self.normed_waveform.thermal_noise
+
         self.generate_ddm_counter += 1
 
         # Compile the output
         return WaveformModelOutput(
             tau,
             waveform_model,
-            peak_power,
+            wfm.amplitude_scale,
             delay_doppler_map,
             delay_doppler_map_masked,
             wfm.epoch,
@@ -297,3 +310,6 @@ class SAMOSAWaveformModel(object):
         p["csi_min_F1"] = np.min(lut.f1[:, 0])
 
         self.static_parameters = p
+
+    def get_fit_params(self) -> Optional[pd.DataFrame]:
+        return pd.DataFrame(self.fit_params) if self.collect_fit_params else None

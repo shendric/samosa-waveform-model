@@ -76,6 +76,10 @@ class Constants:
     def f1_csi_0(self) -> float:
         return -(1. / 2.) * (2. ** (3. / 4.)) * self.gamma_3_4 / 2.
 
+    @cached_property
+    def sqrt_pi(self) -> float:
+        return np.sqrt(np.pi)
+
 
 CONSTANTS = Constants()
 
@@ -254,7 +258,6 @@ class WaveformModelParameters:
     nu_sdev: float = None
     amplitude_scale: float = 1.0
     thermal_noise: float = 0.0
-
 
     @property
     def mean_square_slope(self) -> float:
