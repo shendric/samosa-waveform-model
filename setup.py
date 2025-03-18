@@ -5,9 +5,11 @@ from setuptools import find_packages, setup
 from setuptools.extension import Extension
 import numpy as np
 
-extensions = [
-    Extension("samosa_waveform_model.funcs_cy", ["src/samosa_waveform_model/funcs_cy.pyx"])
-]
+# extensions = [
+#     Extension("samosa_waveform_model.funcs_cy", ["src/samosa_waveform_model/funcs_cy.pyx"])
+# ]
+
+extensions = []
 
 setup(
     cmdclass={'build_ext': build_ext},
