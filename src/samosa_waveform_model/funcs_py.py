@@ -83,11 +83,12 @@ def compute_f1(csi, csi_min_f1, csi_max_f1, z, lut):
     # f1[np.where(csi < csi_min_f1)] = 0
     return f1
 
+
 def get_clipped_f1(csi, csi_min_f1, csi_max_f1, lut_f1):
     clip_f1 = np.bitwise_and(csi >= csi_min_f1, csi <= csi_max_f1)
-    f1 = np.zeros(np.shape(z))
+    f1 = np.zeros(np.shape(csi))
     idx = np.floor((len(lut_f1[:, 0]) - 1) * ((csi[clip_f1] - csi_min_f1) / (csi_max_f1 - csi_min_f1))).astype(int)
-    f1[clip_f1] = (csi[clip_f1] - lut_f1[idx, 0]) * ((lut.f1[idx + 1, 1] - lut_f1[idx, 1]) / (
+    f1[clip_f1] = (csi[clip_f1] - lut_f1[idx, 0]) * ((lut_f1[idx + 1, 1] - lut_f1[idx, 1]) / (
             lut_f1[idx + 1, 0] - lut_f1[idx, 0])) + lut_f1[idx, 1]
     return f1
 
