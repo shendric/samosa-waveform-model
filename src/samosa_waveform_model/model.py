@@ -105,6 +105,7 @@ class SAMOSAWaveformModel(object):
             scenario: ScenarioData,
             engine: str = "samosa+",
             use_slope: bool = False,
+            weighted: bool = False,
             weight_factor: float = 1.4705,
             mask_ranges: bool = None,
             mode: Literal[1, 2] = 1,
@@ -116,14 +117,16 @@ class SAMOSAWaveformModel(object):
         :param scenario:
         :param engine:
         :param use_slope:
+        :param weighted:
         :param weight_factor:
         :param mask_ranges:
         :param mode:
         """
+
         self.scenario = scenario
         self.engine = engine
         self.flag_slope = int(use_slope)
-        self.weighted = weight_factor is not None
+        self.weighted = weighted
         self.weight_factor = weight_factor
         self.mode = mode
         self.mask_ranges = mask_ranges
