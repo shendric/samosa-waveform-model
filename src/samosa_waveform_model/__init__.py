@@ -10,5 +10,13 @@ from samosa_waveform_model.dataclasses import SensorParameters, SARParameters, P
 from samosa_waveform_model.model import ScenarioData, SAMOSAWaveformModel
 from samosa_waveform_model.lut import CS2_LOOKUP_TABLES
 
-__all__ = ["SARParameters", "SensorParameters", "PlatformLocation", "ScenarioData", "WaveformModelParameters",
-           "SAMOSAWaveformModel", "CS2_LOOKUP_TABLES"]
+__all__ = [
+    "SARParameters",
+    "SensorParameters",
+    "PlatformLocation",
+    "ScenarioData",
+    "WaveformModelParameters",
+    "SAMOSAWaveformModel",
+    "CS2_LOOKUP_TABLES",
+    "scenarios"
+]
