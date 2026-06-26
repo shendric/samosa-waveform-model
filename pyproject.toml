@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools", "setuptools-scm"]
+requires = ["cython", "setuptools", "setuptools-scm"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -25,7 +25,6 @@ classifiers = [
 
 dependencies = [
     "bottleneck",
-    "cython",
     "numpy",
     "pandas"
 ]
