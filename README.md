@@ -10,6 +10,23 @@ for a give waveform scenario.
 
 - The current implemenation only allows to compute waveform models for CryoSat-2 SAR and SARin radar modes
 
+## Cython implementation
+
+The original Python implementation remains available in:
+
+- `samosa_waveform_model.model.SAMOSAWaveformModel`
+
+A Cython implementation is available in:
+
+- `samosa_waveform_model.model_cy.SAMOSAWaveformModel`
+- package alias: `samosa_waveform_model.SAMOSAWaveformModelCython`
+
+To build/install the extension in editable mode:
+
+```bash
+pip install -e .
+```
+
 ## Approximate Roadmap
 
 - Add cython implementation of performance relevant functions
