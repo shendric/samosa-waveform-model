@@ -27,6 +27,7 @@ dependencies = [
     "bottleneck",
     "cython",
     "numpy",
+    "pandas"
 ]
 
 [project.optional-dependencies]
