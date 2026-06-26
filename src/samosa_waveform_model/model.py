@@ -6,12 +6,9 @@
 
 __author__ = "Stefan Hendricks <stefan.hendricks@awi.de>"
 
-import warnings
-from warnings import warn
 import bottleneck as bn
 import pandas as pd
 import numpy as np
-from typing import Union
 from typing import Dict, Optional, Literal
 
 from samosa_waveform_model.dataclasses import (SensorParameters, PlatformLocation, SARParameters,
