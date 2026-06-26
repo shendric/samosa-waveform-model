@@ -14,6 +14,7 @@ import numpy as np
 class SAMOSALookupTables(object):
     """
     Container for SAMOSA lookup tables
+    # TODO: Currently hard-coded to CryoSat-2 ICE L1b files -> create more LUT files and make dependent on sensor/mode
     """
 
     def __init__(self) -> None:
@@ -24,7 +25,6 @@ class SAMOSALookupTables(object):
         lut_folder = Path(__file__).parent / "lut"
         kwargs = dict(dtype='float', comments='#', delimiter=None)
 
-        # print("Read LUTs from", lut_folder)
         self.f0 = np.genfromtxt(lut_folder / "LUT_F0.txt", **kwargs)
         self.f1 = np.genfromtxt(lut_folder / "LUT_F1.txt", **kwargs)
 
@@ -42,6 +42,7 @@ class SAMOSALookupTables(object):
     def alphap_weight_file(self) -> str:
         return 'alphap_table_DX3000_ZP20_SWH20_10_Sept_2019(CS2_HAMMING).txt'
 
+    # TODO: Check if this is correct (both alphapower weight and noweight point to NOHAMMING)
     @property
     def alphapower_weight_file(self) -> str:
         return 'alphaPower_table_CONSTANT_SWH20_10_Feb_2020(CS2_NOHAMMING).txt'
