@@ -182,6 +182,7 @@ class SAMOSAWaveformModel(object):
     def generate_delay_doppler_waveform(
             self,
             waveform_model_parameters: "WaveformModelParameters",
+            norm_model_power: bool = True
     ) -> "WaveformModelOutput":
         """
         Compute a delay doppler waveform. This is derived from sampy.SAMOSA.__Generate_SamosaDDM
@@ -262,8 +263,10 @@ class SAMOSAWaveformModel(object):
         waveform_power = bn.nansum(delay_doppler_map, 1) / len(beam_index)
         peak_power = bn.nanmax(waveform_power)
 
-        waveform_model = wfm.amplitude_scale * (waveform_power/peak_power + wfm.thermal_noise)
-
+        if norm_model_power:
+            waveform_model = wfm.amplitude_scale * (waveform_power/peak_power + wfm.thermal_noise)
+        else:
+            waveform_model = waveform_power.copy()
         # waveform_model_scaled_power = amplitude_scale * (pr / np.nanmax(pr)) + self.normed_waveform.thermal_noise
 
         self.generate_ddm_counter += 1
