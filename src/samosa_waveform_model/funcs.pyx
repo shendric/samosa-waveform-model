@@ -4,6 +4,8 @@ cimport numpy as np
 import cython
 cimport cython
 
+np.import_array()
+
 from samosa_waveform_model.dataclasses import CONSTANTS
 
 # Define the types for the numpy arrays

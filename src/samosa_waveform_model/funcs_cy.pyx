@@ -4,6 +4,8 @@ cimport cython
 import numpy as np
 cimport numpy as np
 
+np.import_array()
+
 # Define the types for the numpy arrays
 ctypedef np.float64_t DTYPE_t
 ctypedef np.npy_bool DTYPE_BOOL_t
