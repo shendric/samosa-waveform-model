@@ -243,6 +243,41 @@ cdef class SAMOSAWaveformModel:
         return ddm_masked
 
     def generate_delay_doppler_waveform(self, waveform_model_parameters, norm_model_power=True):
+        cdef double Lx
+        cdef double Ly
+        cdef double Lz
+        cdef double Lg
+        cdef double alpha_x
+        cdef double alpha_y
+        cdef double xp
+        cdef double yp
+        cdef double ls
+        cdef double csi_min_F0
+        cdef double csi_max_F0
+        cdef double csi_min_F1
+        cdef double csi_max_F1
+        cdef double alpha_p
+        cdef double alpha_power
+        cdef double sigma_s
+        cdef double sigma_z
+        cdef double const
+        cdef double peak_power
+        cdef np.ndarray[DTYPE_t, ndim=1] beam_index_arr
+        cdef np.ndarray[DTYPE_t, ndim=1] dk
+        cdef np.ndarray[DTYPE_t, ndim=1] yk
+        cdef np.ndarray[DTYPE_t, ndim=1] gl
+        cdef np.ndarray[DTYPE_t, ndim=2] csi
+        cdef np.ndarray[DTYPE_t, ndim=2] z
+        cdef np.ndarray[DTYPE_t, ndim=2] gamma_0
+        cdef np.ndarray[DTYPE_t, ndim=2] t_kappa
+        cdef np.ndarray[DTYPE_t, ndim=2] f0
+        cdef np.ndarray[DTYPE_t, ndim=2] f1
+        cdef np.ndarray[DTYPE_t, ndim=2] f
+        cdef np.ndarray[DTYPE_t, ndim=2] delay_doppler_map
+        cdef np.ndarray[DTYPE_t, ndim=2] delay_doppler_map_masked
+        cdef np.ndarray[DTYPE_t, ndim=1] waveform_power
+        cdef np.ndarray[DTYPE_t, ndim=1] waveform_model
+
         geo = self.scenario.geo
         rp = self.scenario.rp
         wfm = waveform_model_parameters
@@ -257,25 +292,39 @@ cdef class SAMOSAWaveformModel:
             self.fit_params.append(wfm)
 
         p = self.static_parameters
+        Lx = p["Lx"]
+        Ly = p["Ly"]
+        Lz = p["Lz"]
+        Lg = p["Lg"]
+        alpha_x = p["alpha_x"]
+        alpha_y = p["alpha_y"]
+        xp = p["xp"]
+        yp = p["yp"]
+        ls = p["ls"]
+        csi_min_F0 = p["csi_min_F0"]
+        csi_max_F0 = p["csi_max_F0"]
+        csi_min_F1 = p["csi_min_F1"]
+        csi_max_F1 = p["csi_max_F1"]
+        beam_index_arr = beam_index
 
         dk = (tau * rp.bandwidth)
         yk = 0 * dk
         dk_positive = np.where(dk > 0)
-        yk[dk_positive] = p["Ly"] * np.sqrt(dk[dk_positive])
+        yk[dk_positive] = Ly * np.sqrt(dk[dk_positive])
 
-        sigma_s = (swh / (4.0 * p["Lz"]))
+        sigma_s = (swh / (4.0 * Lz))
         sigma_z = (swh / 4.0)
 
         alpha_p, alpha_power = self.get_alpha_power(swh)
-        gl = self._compute_gl(alpha_p, p["Lx"], p["Ly"], p["Lz"], beam_index, p["ls"], swh)
+        gl = self._compute_gl(alpha_p, Lx, Ly, Lz, beam_index_arr, ls, swh)
         csi = gl[None, :] * dk[:, None]
         z = 0.25 * csi ** 2
 
-        gamma_0 = self._compute_gamma0(p["alpha_y"], p["yp"], p["alpha_x"], nu, alt, p["xl"], p["xp"], yk)
-        t_kappa = self._compute_t_kappa(z, dk, nu, alt, p["alpha_y"], p["yp"], p["Ly"])
-        f0 = self._compute_f0(csi, p["csi_min_F0"], p["csi_max_F0"], z, lut)
-        f1 = self._compute_f1(csi, p["csi_min_F1"], p["csi_max_F1"], z, lut)
-        f = (f0 + sigma_z / p["Lg"] * t_kappa * gl * sigma_s * f1)
+        gamma_0 = self._compute_gamma0(alpha_y, yp, alpha_x, nu, alt, Lx * beam_index_arr, xp, yk)
+        t_kappa = self._compute_t_kappa(z, dk, nu, alt, alpha_y, yp, Ly)
+        f0 = self._compute_f0(csi, csi_min_F0, csi_max_F0, z, lut)
+        f1 = self._compute_f1(csi, csi_min_F1, csi_max_F1, z, lut)
+        f = (f0 + sigma_z / Lg * t_kappa * gl * sigma_s * f1)
 
         const = np.sqrt(2.0 * np.pi * alpha_power ** 4)
         delay_doppler_map = const * np.sqrt(gl) * gamma_0 * f
@@ -284,13 +333,13 @@ cdef class SAMOSAWaveformModel:
             delay_doppler_map,
             self.mask_ranges,
             geo,
-            p["Lx"],
+            Lx,
             self.scenario.sar.span,
             rp.dr,
-            beam_index,
+            beam_index_arr,
         )
 
-        waveform_power = bn.nansum(delay_doppler_map, 1) / len(beam_index)
+        waveform_power = bn.nansum(delay_doppler_map, 1) / len(beam_index_arr)
         peak_power = bn.nanmax(waveform_power)
 
         if norm_model_power:
