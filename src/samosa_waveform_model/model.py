@@ -169,9 +169,9 @@ class SAMOSAWaveformModel(object):
         return alpha_p, alpha_power
 
     def get_alpha_power_no_weights(self, swh):
+        # TODO: To be confirmed (and renamed) that weights means Hamming weighting
         ind = np.argmin(abs(self.lut.alphap_noweight[:, 0] - swh))
         alpha_p = self.lut.alphapower_noweight[:, 1][ind]
-
         ind = np.argmin(abs(self.lut.alphapower_noweight[:, 0] - swh))
         alpha_power = self.lut.alphapower_noweight[:, 1][ind]
         return alpha_p, alpha_power
@@ -220,6 +220,17 @@ class SAMOSAWaveformModel(object):
         # surface elevation standard deviation
         sigma_z = (swh / 4.)
 
+
+        """
+        Notes: 
+        
+        In the formulas in Dinardo 2020, there is just on alpha_p. Here, in the code
+        the alpha_p goes into the computation of gl and alpha_power goes into
+        the scaling factor for delay doppler map.
+        
+        It is unclear why these are different. 
+        """
+        # TODO: Check how pysamosa handles and maybe simplify?
         alpha_p, alpha_power = self.get_alpha_power(swh)
 
         gl = compute_gl(alpha_p, p["Lx"], p["Ly"], p["Lz"], beam_index, p["ls"], swh)

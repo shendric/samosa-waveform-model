@@ -110,6 +110,20 @@ def set_f1_csi_lt_csi_min(f1, csi, csi_min_f1):
 
 
 def compute_gl(alpha_p, lx, Ly, Lz, l, ls, swh):
+    """
+    The origin of this function is unclear. It seems to be equation 3.8 in Dinardo, 2020 with an additional
+    term dependent of significant waveheight and Lz
+
+    :param alpha_p:
+    :param lx:
+    :param Ly:
+    :param Lz:
+    :param l:
+    :param ls:
+    :param swh:
+
+    :return: Compute Function
+    """
     return 1. / np.sqrt(
         alpha_p ** 2 + 4. * (alpha_p ** 2) * (lx / Ly) ** 4 * (l - ls) ** 2 + np.sign(swh) * (swh / (4. * Lz)) ** 2
     )
