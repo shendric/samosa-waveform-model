@@ -153,7 +153,9 @@ class SAMOSAWaveformModel(object):
         self.mode = mode_num
         self._precompute_static_parameters()
 
+    # TODO: Fixed alpha_p and alpha_power values for mode 2, but these should be set by the sensor object
     def get_alpha_power(self, swh):
+        # Weighting means Hamming Window
         if self.weighted:
             if self.mode == 1:
                 ind = bn.nanargmin(abs(self.lut.alphap_weight[:, 0] - swh))
