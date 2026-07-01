@@ -253,6 +253,7 @@ class SAMOSAWaveformModel(object):
         f = (f0 + sigma_z / p["Lg"] * t_kappa * gl * sigma_s * f1)
 
         # ddm: delay doppler map
+        # TODO: Where is **4 in the const coming from? It is **2 in eq 3.15 in Dinardo 2020
         const = np.sqrt(2. * np.pi * alpha_power ** 4)
         delay_doppler_map = const * np.sqrt(gl) * gamma_0 * f
 
