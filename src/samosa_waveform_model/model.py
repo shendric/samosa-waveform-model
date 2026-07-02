@@ -222,7 +222,7 @@ class SAMOSAWaveformModel(object):
 
 
         """
-        Notes: 
+        Notes to the use of `alpha_p` and `alpha_power`: 
         
         In the formulas in Dinardo 2020, there is just on alpha_p. Here, in the code
         the alpha_p goes into the computation of gl and alpha_power goes into
@@ -231,8 +231,21 @@ class SAMOSAWaveformModel(object):
         The reason for the two alpha_power factor could be that one is
         for the range and one for the azimuth PTR.
         
-        The parameter `alpha_p` goes into compute_gl, which uses the alpha factor 
-        to 
+        The parameter `alpha_p` goes into compute_gl and `alpha_power` goes into
+        the constant factor for the delay doppler map. 
+        
+        According to a code comment in pysamosa (https://pypi.org/project/pysamosa/), 
+        `alpha_power` is an average and constant values which should be used for the 
+        delay dopper map scaling factor (thus the alpha_power lookup table in SAMPy
+        only includes a singular alpha power value and is the same for Hamming and no Hamming).
+        
+        `alpha_p`instead may vary as function of significant waveheight. 
+        But when zero-padding is applied, than alpha_p may also be constant 
+        value (section 3.2.3 in Dinardo et al. 2020, with a fixed value of 0.55). 
+        Nevertheless, SAMPy sets `alpha_p` to 0.42349 for SAMOSA+. 
+        But since the SAMOSA+ retracker uses SAMOSA (with nu set to zero) for the 
+        significant waveheight step, an lookup table for `alpha_p` is required 
+        for both Hamming and no-Hamming configurations. 
         """
         alpha_p, alpha_power = self.get_alpha_power(swh)
 
