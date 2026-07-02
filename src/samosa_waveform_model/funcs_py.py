@@ -1,5 +1,6 @@
 import numpy as np
-from samosa_waveform_model.dataclasses import CONSTANTS
+from typing import Optional, Tuple
+from samosa_waveform_model.dataclasses import CONSTANTS, PlatformLocation
 
 
 def compute_gamma0(alpha_y, yp, alpha_x, nu, alt, xl, xp, yk):
@@ -120,7 +121,8 @@ def compute_gl(
 ) -> np.ndarray:
     """
     Equation 3.8 in Dinardo, 2020 with expressing "sigma_z = SWH/4" and adding a sign
-    function to deal with negative significant waveheight.
+    function to deal with negative significant waveheight (that is introduced in
+    another notation in equation 3.12.)
 
     :param alpha_p: The scaling parameter for the range PTR?
     :param lx: along-track resolution
@@ -137,15 +139,59 @@ def compute_gl(
     )
 
 
-def ddm_mask_ranges(ddm, mask_ranges, geo, lx, span, dr, beam_index):
+def ddm_mask_ranges(
+        ddm: np.ndarray,
+        mask_ranges: Optional[np.ndarray],
+        geo: PlatformLocation,
+        lx: float,
+        span: Tuple[np.ndarray],
+        dr: float,
+        beam_index: np.ndarray
+) -> np.ndarray:
+    """
+    Mask the delay dopper model according to section 3.2.2.e in Dinardo, 2020. This is done
+    for consistency between the model and the actual stack data, which is not completely filled
+    due the limited range window of the altimeter.
+
+    This masking a negligible effect on peaky waveforms, but is relevant for diffuse sea ice
+    waveforms, where the impact of the masking is a faster decay of the trailing edge towards
+    zero.
+
+    Another effect is the trailing edge of the waveform from the masked delay dopper model
+    may develop discontinous jumps especially in cases without many looks (for example
+    if the beamsamp factor is set to 1)
+
+    :param ddm: (unmasked) delay dopper model
+    :param mask_ranges: mask ranges
+    :param geo: Platform location (includes altitude and kappa factor)
+    :param lx: along-track resolution
+    :param span: indices of duplicated doppler beam indices
+        (only required when mask_ranges is not None, see SARParameters.span)
+    :param dr: range resolution (including zero-padding)
+    :param beam_index: Doppler beam index (May differ from all doppler beams
+        due to doppler beam decimation, see dataclasses.SARParameters._compute_beam_index)
+
+    return: Masked delay dopper model (same dimension as input delay dopper model)
+    """
+
+    # Estimate the total range shift for each doppler beam if no mask is provided
+    # NOTE: The source of the mask range is likely the higher level altimetry data
+    #       and was never specified in the SAMPy code.
     if mask_ranges is None:
         mask_ranges_demin = geo.altitude * (np.sqrt(1 + (geo.kappa * ((lx * beam_index) / geo.altitude) ** 2)) - 1)
     else:
         mask_ranges = np.delete(mask_ranges, span)
         mask_ranges_demin = mask_ranges - min(mask_ranges)
+
     num_range_gates = ddm.shape[0]
+
+    # r is "\Delta R_l" (total range shift = sum of slant range shift, tracker range shift and doppler range shift)
     r = np.tile(mask_ranges_demin, (num_range_gates, 1))
+
+    # dr_tiled is "$R_k" (equation 3.31 in Dinardo et al., 2020)
     dr_tiled = np.tile(dr * np.arange(num_range_gates - 1, -1, -1), (len(beam_index), 1)).T
+
     ddm_masked = ddm.copy()
-    ddm_masked[np.where(r >= dr_tiled)] = 0
+    ddm_masked[np.where(r >= dr_tiled)] = 0.0
+
     return ddm_masked

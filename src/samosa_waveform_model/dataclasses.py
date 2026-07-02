@@ -101,7 +101,10 @@ class SensorParameters:
     beam_width_across: float  # (rad) Antenna 3 dB beamwidth (cross-track) [theta_3y]
     num_look_min: float = -90.0
     num_look_max: float = 90.0
-    beamsamp_factor: float = 1.0
+    # The default value of 1.0 leads to a fairly small number of doppler cells in the delay-doppler map (DDM).
+    # If DDM mask is activated (by default), then the waveform may become choppy.
+    # TODO: Consider to increase `beamsamp_factor` until all doppler beams are used beamsamp=4 will result in 181 looks)
+    beamsamp_factor: float = 1.0  # Number of beams per doppler cell
 
     @classmethod
     def get(cls, platform_name: str, radar_mode_name: str) -> "SensorParameters":
