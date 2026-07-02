@@ -109,23 +109,31 @@ def set_f1_csi_lt_csi_min(f1, csi, csi_min_f1):
     return f1
 
 
-def compute_gl(alpha_p, lx, Ly, Lz, l, ls, swh):
+def compute_gl(
+        alpha_p: float,
+        lx: float,
+        ly: float,
+        lz: float,
+        beam_idx: np.ndarray,
+        ls: float,
+        swh: float
+) -> np.ndarray:
     """
-    The origin of this function is unclear. It seems to be equation 3.8 in Dinardo, 2020 with an additional
-    term dependent of significant waveheight and Lz
+    Equation 3.8 in Dinardo, 2020 with expressing "sigma_z = SWH/4" and adding a sign
+    function to deal with negative significant waveheight.
 
-    :param alpha_p:
-    :param lx:
-    :param Ly:
-    :param Lz:
-    :param l:
-    :param ls:
-    :param swh:
+    :param alpha_p: The scaling parameter for the range PTR?
+    :param lx: along-track resolution
+    :param ly: pulse-limted radius
+    :param lz: vertical resolution
+    :param beam_idx: Doppler beam index
+    :param ls: Doppler beam slope (? TBC)
+    :param swh: significant waveheight
 
-    :return: Compute Function
+    :return: gl (equation 3.8 in Dinardo, 2020) for each beam index
     """
     return 1. / np.sqrt(
-        alpha_p ** 2 + 4. * (alpha_p ** 2) * (lx / Ly) ** 4 * (l - ls) ** 2 + np.sign(swh) * (swh / (4. * Lz)) ** 2
+        alpha_p ** 2 + 4. * (alpha_p ** 2) * (lx / ly) ** 4 * (beam_idx - ls) ** 2 + np.sign(swh) * (swh / (4. * lz)) ** 2
     )
 
 

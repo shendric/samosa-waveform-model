@@ -228,9 +228,12 @@ class SAMOSAWaveformModel(object):
         the alpha_p goes into the computation of gl and alpha_power goes into
         the scaling factor for delay doppler map.
         
-        It is unclear why these are different. 
+        The reason for the two alpha_power factor could be that one is
+        for the range and one for the azimuth PTR.
+        
+        The parameter `alpha_p` goes into compute_gl, which uses the alpha factor 
+        to 
         """
-        # TODO: Check how pysamosa handles and maybe simplify?
         alpha_p, alpha_power = self.get_alpha_power(swh)
 
         gl = compute_gl(alpha_p, p["Lx"], p["Ly"], p["Lz"], beam_index, p["ls"], swh)
@@ -271,7 +274,9 @@ class SAMOSAWaveformModel(object):
         waveform_power = bn.nansum(delay_doppler_map, 1) / len(beam_index)
         peak_power = bn.nanmax(waveform_power)
 
+        # TODO: Add switch to define waveform scaling behaviour.
         waveform_model = wfm.amplitude_scale * (waveform_power/peak_power + wfm.thermal_noise)
+        # waveform_model = waveform_power
 
         # waveform_model_scaled_power = amplitude_scale * (pr / np.nanmax(pr)) + self.normed_waveform.thermal_noise
 
