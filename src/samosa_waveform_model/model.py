@@ -103,11 +103,11 @@ class SAMOSAWaveformModel(object):
     def __init__(
             self,
             scenario: ScenarioData,
-            engine: str = "samosa+",
+            engine: str = "samosa+",              # Fixme: Currently don't doing anything
             use_slope: bool = False,
-            weight_factor: float = 1.4705,
-            mask_ranges: bool = None,
-            mode: Literal[1, 2] = 1,
+            weight_factor: float = 1.4705,   # Todo: Move to sensor properties (hamming PTR main lobe widening factor)
+            mask_ranges: bool = None,             # Todo: Rename to delay doppler map masking for clearer intent
+            mode: Literal[1, 2] = 1,              # Todo: Rename to waveform model (SAMOSA or SAMOSA+, see `engine` parameter)
             collect_fit_params: bool = False
     ) -> None:
         """
