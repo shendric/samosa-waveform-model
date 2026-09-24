@@ -27,7 +27,8 @@ classifiers = [
 dependencies = [
     "bottleneck",
     "numpy",
-    "pandas"
+    "pandas",
+    "pydantic"
 ]
 
 [project.optional-dependencies]
@@ -47,4 +48,4 @@ dev = [
 where = ["src"]
 
 [tool.setuptools.package-data]
-"samosa_waveform_model.lut" = ["*.txt"]
+"samosa_waveform_model.lut" = ["*.txt", "*.csv", "*.md"]

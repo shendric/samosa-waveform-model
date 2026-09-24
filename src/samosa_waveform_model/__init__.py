@@ -1,11 +1,10 @@
 # -*- coding: utf-8 -*-
 
 """
-python package for the SAMOSA+  conversion. Based on sampy by CLS
+python package for the SAMOSA/SAMOSA+ waveform model. Based on SAMPy by CLS
 """
 
 __author__ = "Stefan Hendricks <stefan.hendricks@awi.de>"
-
 __all__ = [
     "SARParameters",
     "SensorParameters",

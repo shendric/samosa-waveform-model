@@ -9,7 +9,7 @@ __author__ = "Stefan Hendricks <stefan.hendricks@awi.de>"
 
 from dataclasses import dataclass
 from functools import cached_property
-from typing import List
+from typing import List, Optional
 import numpy as np
 
 PLATFORM_PRESETS = {
@@ -107,7 +107,6 @@ class SensorParameters:
     # If DDM mask is activated (by default), then the waveform may become choppy.
     # TODO: Consider to increase `beamsamp_factor` until all doppler beams are used beamsamp=4 will result in 181 looks) -> Move to waveform model config
     beamsamp_factor: float = 1.0  # Number of beams per doppler cell
-    lut_file: str = None  # Path to the LUT file for the waveform model
 
     @classmethod
     def get(cls, platform_name: str, radar_mode_name: str) -> "SensorParameters":
@@ -163,12 +162,12 @@ class SensorParameters:
 @dataclass
 class SARParameters:
 
-    look_angles: np.ndarray = None
-    doppler_frequencies: np.ndarray = None
-    span: np.ndarray = None
-    beam_index: np.ndarray = None
+    look_angles: Optional[np.ndarray] = None
+    doppler_frequencies: Optional[np.ndarray] = None
+    span: Optional[np.ndarray] = None
+    beam_index: Optional[np.ndarray] = None
     beamsamp_factor: int = 1
-    hamming_weighting: bool = False
+    hamming_weighting: bool = True
     hamming_ptr_main_lobe_widening_factor: float = 1.4705
 
     def compute_multi_look_parameters(
@@ -180,10 +179,10 @@ class SARParameters:
         Compute a set of beam parameters. Note the methods called depend on
         the order in which these are called
 
-        :param geo:
-        :param sp:
+        :param geo: The platform location (including altitude and kappa factor)
+        :param sp: The sensor parameters (including wavelength and burst repetition interval)
 
-        :return: Nothing
+        :return: None: Changes parameters in place
         """
 
         # Compute default parameters if look angles has not been set to actual data
@@ -260,12 +259,12 @@ class WaveformModelParameters:
     for the forward model. These are included here because the
     waveform fitting procedure in pysiral relies on this dataclass.
     """
-    epoch: float = None  # The epoch in seconds
-    epoch_sdev: float = None
-    significant_wave_height: float = None
-    significant_wave_height_sdev: float = None
+    epoch: Optional[float] = None  # The epoch in seconds
+    epoch_sdev: Optional[float] = None
+    significant_wave_height: Optional[float] = None
+    significant_wave_height_sdev: Optional[float] = None
     nu: float = 0.0
-    nu_sdev: float = None
+    nu_sdev: Optional[float] = None
     amplitude_scale: float = 1.0
     thermal_noise: float = 0.0
 
@@ -277,7 +276,7 @@ class WaveformModelParameters:
             return np.inf
 
     @property
-    def args_list(self) -> List[float]:
+    def args_list(self) -> List[Optional[float]]:
         return [self.epoch, self.significant_wave_height, self.nu]
 
 
@@ -286,13 +285,13 @@ class PlatformLocation:
     """
     """
 
-    latitude: float = None  # latitude in degree for the waveform under iteration
-    longitude: float = None  # longitude in degree between -180, 180 for the waveform under iteration
-    altitude: float = None  # Orbit height in meter for the waveform under iteration
-    velocity: float = None  # Satellite Velocity in m/s
-    height_rate: float = None  # Orbit Height rate in m/s for the waveform under iteration
-    pitch: float = None  # Altimeter Reference Frame Pitch in radian
-    roll: float = None  # Altimeter Reference Frame Roll in radian
+    latitude: Optional[float] = None  # latitude in degree for the waveform under iteration
+    longitude: Optional[float] = None  # longitude in degree between -180, 180 for the waveform under iteration
+    altitude: Optional[float] = None  # Orbit height in meter for the waveform under iteration
+    velocity: Optional[float] = None  # Satellite Velocity in m/s
+    height_rate: Optional[float] = None  # Orbit Height rate in m/s for the waveform under iteration
+    pitch: Optional[float] = None  # Altimeter Reference Frame Pitch in radian
+    roll: Optional[float] = None  # Altimeter Reference Frame Roll in radian
     track_sign: int = 0  # -1 for ascending & +1 for descending, set it to zero if flag_slope=False in
 
     @cached_property

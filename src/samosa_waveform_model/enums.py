@@ -13,3 +13,11 @@ class WaveformModelEngines(StrEnum):
     """
     SAMOSA = "samosa"
     SAMOSAPLUS = "samosa+"
+
+
+class RadarModes:
+    """
+    Different radar modes for the SAMOSA waveform model/retracker.
+    """
+    SAR = "sar"
+    SIN = "sin"
