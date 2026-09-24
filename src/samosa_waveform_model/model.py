@@ -11,7 +11,7 @@ import bottleneck as bn
 import pandas as pd
 import numpy as np
 
-from pydantic import BaseModel, PositiveInt
+from pydantic import BaseModel
 from typing import Dict, Optional, Tuple, Union
 
 from samosa_waveform_model.enums import WaveformModelEngines
@@ -20,8 +20,7 @@ from samosa_waveform_model.dataclasses import (SensorParameters, PlatformLocatio
 from samosa_waveform_model.lut import SAMOSA_MODEL_TERMS_LUT
 
 
-from samosa_waveform_model.funcs_py import (compute_gl, compute_gamma0, compute_t_kappa, compute_f0, compute_f1,
-                                            ddm_mask_ranges)
+from samosa_waveform_model.funcs_py import (compute_gl, compute_gamma0, compute_t_kappa, ddm_mask_ranges)
 
 
 # try:
@@ -126,28 +125,28 @@ class ScenarioData(object):
         :return:
         """
         if self.sar.hamming_weighting:
+            alpha_power_ddm = self.rp.alpha_power_ddm
             match engine:
                 case WaveformModelEngines.SAMOSA:
+                    raise NotImplementedError("New SAMOSA alpha power lookup table not implemented yet")
                     ind = bn.nanargmin(abs(self.lut.alphap_weight[:, 0] - swh))
-                    alpha_p = self.lut.alphap_weight[:, 1][ind]
-                    alpha_power = 0.47356
+                    alpha_power_ptr = self.lut.alphap_weight[:, 1][ind]
                 case WaveformModelEngines.SAMOSAPLUS:
-                    alpha_p = 0.42349
-                    alpha_power = 0.47356
+                    alpha_power_ptr = self.rp.alpha_power_ptr
                 case _:
                     raise ValueError(f"Unknown waveform model engine: {engine}")
         else:
-            alpha_p, alpha_power = self.get_alpha_power_no_weights(swh)
-        return alpha_p, alpha_power
+            alpha_power_ptr, alpha_power_ddm = self.get_alpha_power_no_weights(swh)
+        return alpha_power_ptr, alpha_power_ddm
 
     def get_alpha_power_no_weights(self, swh):
         # TODO: To be confirmed (and renamed) that weights means Hamming weighting
+        raise NotImplementedError("New SAMOSA alpha power lookup table for no weighting not implemented yet")
         ind = np.argmin(abs(self.lut.alphap_noweight[:, 0] - swh))
-        alpha_p = self.lut.alphapower_noweight[:, 1][ind]
-
+        alpha_power_ptr = self.lut.alphapower_noweight[:, 1][ind]
         ind = np.argmin(abs(self.lut.alphapower_noweight[:, 0] - swh))
-        alpha_power = self.lut.alphapower_noweight[:, 1][ind]
-        return alpha_p, alpha_power
+        alpha_power_ddm = self.lut.alphapower_noweight[:, 1][ind]
+        return alpha_power_ptr, alpha_power_ddm
 
 
 class FixedScenarioParameters(object):
@@ -228,6 +227,7 @@ class FixedScenarioParameters(object):
             return self.p[item]
         else:
             raise KeyError(f"Item '{item}' not found in pre-computed static parameters [{self.p.keys()}].")
+
 
 class SAMOSAFitHouseKeeping(object):
 
@@ -432,8 +432,8 @@ class SAMOSAWaveformModel(object):
 
         gl = compute_gl(alpha_power_ptr, p["lx"], p["ly"], p["lz"], beam_index, p["ls"], swh)
 
-        csi = gl[None, :] * dk[:, None]
-        z = 1. / 4. * csi ** 2
+        xi = gl[None, :] * dk[:, None]
+        z = 1. / 4. * xi ** 2
 
         # gamma0: Surface backscatter response
         gamma_0 = compute_gamma0(p["alpha_y"], p["yp"], p["alpha_x"], nu, alt, p["xl"], p["xp"], yk)
@@ -441,13 +441,11 @@ class SAMOSAWaveformModel(object):
         # Equation 3.19 in Dinardo
         t_kappa = compute_t_kappa(z, dk, nu, alt, p["alpha_y"], p["yp"], p["ly"])
 
-        # f0 : zero order term of the SAMOSA SAR return waveform model
-        f0 = self.model_term_lut.get(order=0, xi=csi, clip_xi_range=True, constant_xi0=True)
-        # f0 = compute_f0(csi, p["csi_min_F0"], p["csi_max_F0"], z, lut)
+        # f0: zero order term of the SAMOSA SAR return waveform model
+        f0 = self.model_term_lut.get(order=0, xi=xi, z=z)
 
-        # f1 : first order term of the SAMOSA SAR return waveform model
-        # f1 = compute_f1(csi, p["csi_min_F1"], p["csi_max_F1"], z, lut)
-        f1 = self.model_term_lut.get(order=1, xi=csi, clip_xi_range=True, constant_xi0=True)
+        # f1: first order term of the SAMOSA SAR return waveform model
+        f1 = self.model_term_lut.get(order=1, xi=xi, z=z)
 
         f = (f0 + sigma_z / p["lg"] * t_kappa * gl * sigma_s * f1)
 

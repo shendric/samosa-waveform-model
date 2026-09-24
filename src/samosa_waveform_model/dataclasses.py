@@ -110,8 +110,7 @@ class SensorParameters:
     num_look_max: float = 90.0
     # The default value of 1.0 leads to a fairly small number of doppler cells in the delay-doppler map (DDM).
     # If DDM mask is activated (by default), then the waveform may become choppy.
-    # TODO: Consider to increase `beamsamp_factor` until all doppler beams are used beamsamp=4 will result in 181 looks) -> Move to waveform model config
-    beamsamp_factor: float = 1.0  # Number of beams per doppler cell
+    beamsamp_factor: float = 2.0  # Number of beams per doppler cell
 
     @classmethod
     def get(cls, platform_name: str, radar_mode_name: str) -> "SensorParameters":
@@ -174,6 +173,7 @@ class SARParameters:
     beamsamp_factor: int = 1
     hamming_weighting: bool = True
     hamming_ptr_main_lobe_widening_factor: float = 1.4705
+    mask_ranges: Optional[np.ndarray] = None
 
     def compute_multi_look_parameters(
             self,
@@ -250,6 +250,7 @@ class SARParameters:
             dfa: float
     ) -> None:
         beam_index = np.around(beamsamp_factor * self.doppler_frequencies / dfa) / beamsamp_factor
+        print(f"beam_index: {beam_index.size}")
         self.span = np.where(np.diff(beam_index, axis=0) == 0)
         self.beam_index = np.delete(beam_index, self.span)
 

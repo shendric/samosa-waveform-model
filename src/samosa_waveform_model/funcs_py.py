@@ -21,97 +21,10 @@ def compute_t_kappa(z, dk, nu, alt, alpha_y, yp, ly):
     dk_negative_idx = np.where(np.logical_not(dk_positive))
     dk_positive_sqrt = np.sqrt(dk[dk_positive_idx])
     t_kappa[dk_positive_idx, :] = (
-            (1. + nu / ((alt ** 2) * alpha_y)) - yp / (ly * dk_positive_sqrt) * np.tanh(
-        2. * alpha_y * yp * ly * dk_positive_sqrt)[None, :]).T
+            (1. + nu / ((alt ** 2) * alpha_y)) - yp / (ly * dk_positive_sqrt) *
+            np.tanh(2. * alpha_y * yp * ly * dk_positive_sqrt)[None, :]).T
     t_kappa[dk_negative_idx, :] = (1. + nu / ((alt ** 2) * alpha_y)) - 2. * alpha_y * yp ** 2
     return t_kappa
-
-
-def compute_f0(csi, csi_min_f0, csi_max_f0, z, lut):
-    f0 = get_clipped_f0(csi, csi_min_f0, csi_max_f0, lut.f0)
-    f0 = set_f0_z_idx_max_f0(csi, csi_max_f0, f0, z)
-    f0 = set_f0_csi_eq_0(f0, csi)
-    f0 = set_f0_csi_lt_csi_min(f0, csi, csi_min_f0)
-    return f0
-
-
-def get_clipped_f0(csi, csi_min_f0, csi_max_f0, lut_f0):
-    f0 = np.zeros(np.shape(csi))
-    print(f"lut_f0[0]: {lut_f0[:10, 0]}")
-    print(f"lut_f0[1]: {lut_f0[:10, 1]}")
-    print(f"xi_min: {csi_min_f0}, xi_max: {csi_max_f0}")
-    clip_f0 = np.bitwise_and(csi >= csi_min_f0, csi <= csi_max_f0)
-    print(f"len clip_f0: {clip_f0.size}")
-    idx = np.floor((lut_f0[:, 0].size - 1) * ((csi[clip_f0] - csi_min_f0) / (csi_max_f0 - csi_min_f0))).astype(int)
-    f0[clip_f0] = (csi[clip_f0] - lut_f0[idx, 0]) * ((lut_f0[idx + 1, 1] - lut_f0[idx, 1]) / (
-            lut_f0[idx + 1, 0] - lut_f0[idx, 0])) + lut_f0[idx, 1]
-    return f0
-
-
-def set_f0_z_idx_max_f0(csi, csi_max_f0, f0, z):
-    idx_max_f0 = find_idx_max_f0(csi, csi_max_f0)
-    z_idx_max_f0 = z[idx_max_f0]
-    f0[idx_max_f0] = 1. / 2. * CONSTANTS.sqrt_pi / z_idx_max_f0 ** (1. / 4.) * (
-            1. + 3. / (32. * z_idx_max_f0) + 105. / (
-            2048. * z_idx_max_f0 ** 2) + 10395. / (
-                    196608. * z_idx_max_f0 ** 3))
-    return f0
-
-
-def find_idx_max_f0(csi, csi_max_f0):
-    return np.where(csi > csi_max_f0)
-
-
-def set_f0_csi_eq_0(f0, csi):
-    f0[np.where(csi == 0)] = CONSTANTS.f0_csi_0
-    return f0
-
-
-def set_f0_csi_lt_csi_min(f0, csi, csi_min_f0):
-    f0[np.where(csi < csi_min_f0)] = 0
-    return f0
-
-
-def compute_f1(csi, csi_min_f1, csi_max_f1, z, lut):
-    f1 = get_clipped_f1(csi, csi_min_f1, csi_max_f1, lut.f1)
-    # clip_f1 = np.bitwise_and(csi >= csi_min_f1, csi <= csi_max_f1)
-    # f1 = np.zeros(np.shape(z))
-    # idx = np.floor((len(lut.f1[:, 0]) - 1) * ((csi[clip_f1] - csi_min_f1) / (csi_max_f1 - csi_min_f1))).astype(int)
-    # f1[clip_f1] = (csi[clip_f1] - lut.f1[idx, 0]) * ((lut.f1[idx + 1, 1] - lut.f1[idx, 1]) / (
-    #         lut.f1[idx + 1, 0] - lut.f1[idx, 0])) + lut.f1[idx, 1]
-    f1 = set_f1_csi_gt_csi_max(f1, csi, csi_max_f1, z)
-    # idx_max_f1 = np.where(csi > csi_max_f1)
-    # f1[idx_max_f1] = (1. / 2.) * 1. / 4. * CONSTANTS.sqrt_pi / (z[idx_max_f1]) ** (3. / 4.)
-    f1 = set_f1_csi_eq_0(f1, csi)
-    # f1[np.where(csi == 0)] = CONSTANTS.f1_csi_0
-    f1 = set_f1_csi_lt_csi_min(f1, csi, csi_min_f1)
-    # f1[np.where(csi < csi_min_f1)] = 0
-    return f1
-
-
-def get_clipped_f1(csi, csi_min_f1, csi_max_f1, lut_f1):
-    clip_f1 = np.bitwise_and(csi >= csi_min_f1, csi <= csi_max_f1)
-    f1 = np.zeros(np.shape(csi))
-    idx = np.floor((len(lut_f1[:, 0]) - 1) * ((csi[clip_f1] - csi_min_f1) / (csi_max_f1 - csi_min_f1))).astype(int)
-    f1[clip_f1] = (csi[clip_f1] - lut_f1[idx, 0]) * ((lut_f1[idx + 1, 1] - lut_f1[idx, 1]) / (
-            lut_f1[idx + 1, 0] - lut_f1[idx, 0])) + lut_f1[idx, 1]
-    return f1
-
-
-def set_f1_csi_gt_csi_max(f1, csi, csi_max_f1, z):
-    idx_max_f1 = np.where(csi > csi_max_f1)
-    f1[idx_max_f1] = (1. / 2.) * 1. / 4. * CONSTANTS.sqrt_pi / (z[idx_max_f1]) ** (3. / 4.)
-    return f1
-
-
-def set_f1_csi_eq_0(f1, csi):
-    f1[np.where(csi == 0)] = CONSTANTS.f1_csi_0
-    return f1
-
-
-def set_f1_csi_lt_csi_min(f1, csi, csi_min_f1):
-    f1[np.where(csi < csi_min_f1)] = 0
-    return f1
 
 
 def compute_gl(
