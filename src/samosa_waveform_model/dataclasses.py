@@ -162,6 +162,7 @@ class SARParameters:
     span: np.ndarray = None
     beam_index: np.ndarray = None
     hamming_weighting: bool = False
+    weighting_factor: float = 1.4705
 
     def compute_multi_look_parameters(
             self,

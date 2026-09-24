@@ -9,8 +9,9 @@ __author__ = "Stefan Hendricks <stefan.hendricks@awi.de>"
 import bottleneck as bn
 import pandas as pd
 import numpy as np
-from typing import Dict, Optional, Literal
+from typing import Dict, Optional, Literal, Tuple
 
+from samosa_waveform_model.enums import WaveformModelEngines
 from samosa_waveform_model.dataclasses import (SensorParameters, PlatformLocation, SARParameters,
                                                CONSTANTS, WaveformModelOutput, WaveformModelParameters)
 from samosa_waveform_model.lut import CS2_LOOKUP_TABLES
@@ -48,12 +49,20 @@ class ScenarioData(object):
         """
         A class for the waveform model input
 
+        :param rp: Sensor(Radar) parameters
+        :param geo: Platform location parameters
+        :param sar: SAR processing parameters
         """
         self.rp = rp
         self.geo = geo
         self.sar = sar
 
-    def get_alpha_power(self, engine, swh: Optional[float] = None):
+    def get_alpha_power(
+            self,
+            engine: WaveformModelEngines,
+            swh: Optional[float] = None
+    ) -> Tuple[float, float]:
+        breakpoint()
 
     @classmethod
     def cryosat2_sar_example(
@@ -93,6 +102,35 @@ class ScenarioData(object):
         return cls(sp, geo, sar)
 
 
+class FixedScenarioVariables(object):
+
+def __init__(
+            self,
+            engine: WaveformModelEngines,
+            scenario: ScenarioData,
+            use_slope: bool = False,
+            mask_ranges: bool = None
+    ) -> None:
+        """
+        A class for the pre-computation of fixed variables for the SAMOSA+ waveform model.
+
+        This class exists for the purpose of fitting the waveform model to data,
+        where the fixed variables can be pre-computed once and don't need to be computed
+        in every iteration of the fitting process.
+
+        :param scenario:
+        :param use_slope:
+        :param mask_ranges:
+        """
+        pass
+        # self.scenario = scenario
+        # self.flag_slope = int(use_slope)
+        # self.mask_ranges = mask_ranges
+        # self.lut = CS2_LOOKUP_TABLES  # TODO: Move to scenario data (specifically radar parameters)
+        # self.static_parameters = {}
+        # self._precompute_static_parameters()
+
+
 class SAMOSAWaveformModel(object):
     """
     A class for the modeling of waveforms using the SAMOSA+ waveform model
@@ -101,13 +139,10 @@ class SAMOSAWaveformModel(object):
 
     def __init__(
             self,
+            engine: WaveformModelEngines,
             scenario: ScenarioData,
-            engine: str = "samosa+",
             use_slope: bool = False,
-            weighted: bool = False,
-            weight_factor: float = 1.4705,
             mask_ranges: bool = None,
-            mode: Literal[1, 2] = 1,   # TODO: replace by engine mode: 1 -> SAMOSA, mode: 2 -> SAMOSA+
             collect_fit_params: bool = False
     ) -> None:
         """
@@ -125,11 +160,8 @@ class SAMOSAWaveformModel(object):
         self.scenario = scenario
         self.engine = engine
         self.flag_slope = int(use_slope)
-        self.weighted = weighted
-        self.weight_factor = weight_factor
-        self.mode = mode
         self.mask_ranges = mask_ranges
-        self.lut = CS2_LOOKUP_TABLES
+        self.lut = CS2_LOOKUP_TABLES  # TODO: Move to scenario data (specifically radar parameters)
         self.static_parameters = {}
         self.set_mode(self.mode)
         self.collect_fit_params = collect_fit_params
@@ -224,7 +256,7 @@ class SAMOSAWaveformModel(object):
         # surface elevation standard deviation
         sigma_z = (swh / 4.)
 
-        alpha_p, alpha_power = self.get_alpha_power(swh)
+        alpha_p, alpha_power = self.scenario.get_alpha_power(self.engine, swh)
 
         gl = compute_gl(alpha_p, p["Lx"], p["Ly"], p["Lz"], beam_index, p["ls"], swh)
 
