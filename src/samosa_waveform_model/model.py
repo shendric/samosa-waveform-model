@@ -11,9 +11,11 @@ from warnings import warn
 import bottleneck as bn
 import pandas as pd
 import numpy as np
-from typing import Union
-from typing import Dict, Optional, Literal
 
+from pydantic import BaseModel, PositiveInt
+from typing import Dict, Optional, Tuple
+
+from samosa_waveform_model.enums import WaveformModelEngines
 from samosa_waveform_model.dataclasses import (SensorParameters, PlatformLocation, SARParameters,
                                                CONSTANTS, WaveformModelOutput, WaveformModelParameters)
 from samosa_waveform_model.lut import CS2_LOOKUP_TABLES
@@ -49,8 +51,11 @@ class ScenarioData(object):
 
     ) -> None:
         """
-        A class for the waveform model input
+        Bundle of all input parameters for the SAMOSA+ waveform model. .
 
+        :param rp: Sensor (Radar) parameters
+        :param geo: Location and attitude of the platform (satellite)
+        :param sar: SAR processing parameters
         """
         self.rp = rp
         self.geo = geo
@@ -93,107 +98,30 @@ class ScenarioData(object):
 
         return cls(sp, geo, sar)
 
-
-class FixedScenarioVariables(object):
-
-def __init__(
+    def get_alpha_power(
             self,
             engine: WaveformModelEngines,
-            scenario: ScenarioData,
-            use_slope: bool = False,
-            mask_ranges: bool = None
-    ) -> None:
+            swh: Optional[float] = None
+    ) -> Tuple[float, float]:
         """
-        A class for the pre-computation of fixed variables for the SAMOSA+ waveform model.
 
-        This class exists for the purpose of fitting the waveform model to data,
-        where the fixed variables can be pre-computed once and don't need to be computed
-        in every iteration of the fitting process.
+        # TODO: A lot
 
-        :param scenario:
-        :param use_slope:
-        :param mask_ranges:
-        """
-        pass
-        # self.scenario = scenario
-        # self.flag_slope = int(use_slope)
-        # self.mask_ranges = mask_ranges
-        # self.lut = CS2_LOOKUP_TABLES  # TODO: Move to scenario data (specifically radar parameters)
-        # self.static_parameters = {}
-        # self._precompute_static_parameters()
-
-
-class SAMOSAWaveformModel(object):
-    """
-    A class for the modeling of waveforms using the SAMOSA+ waveform model
-    (Currently ocean waveforms with free parameter of range and significant waveheight only)
-    """
-
-    def __init__(
-            self,
-            engine: WaveformModelEngines,
-            scenario: ScenarioData,
-            engine: str = "samosa+",              # Fixme: Currently don't doing anything
-            use_slope: bool = False,
-            weight_factor: float = 1.4705,   # Todo: Move to sensor properties (hamming PTR main lobe widening factor)
-            mask_ranges: bool = None,             # Todo: Rename to delay doppler map masking for clearer intent
-            mode: Literal[1, 2] = 1,              # Todo: Rename to waveform model (SAMOSA or SAMOSA+, see `engine` parameter)
-            collect_fit_params: bool = False
-    ) -> None:
-        """
-        Initialize the forward model
-
-        :param scenario:
         :param engine:
-        :param use_slope:
-        :param weight_factor:
-        :param mask_ranges:
-        :param mode:
+        :param swh:
+
+        :return:
         """
-        self.scenario = scenario
-        self.engine = engine
-        self.flag_slope = int(use_slope)
-        self.weighted = weight_factor is not None
-        self.weight_factor = weight_factor
-        self.mode = mode
-        self.mask_ranges = mask_ranges
-        self.lut = CS2_LOOKUP_TABLES
-        self.static_parameters = {}
-        self.set_mode(self.mode)
-        self.collect_fit_params = collect_fit_params
-        self.fit_params = []
-        self.generate_ddm_counter = 0
 
-    def set_mode(self, mode_num: Literal[1, 2]) -> None:
-        """
-        Sets the waveform model computation mode. The mode is equivalent
-        to the step parameter in SAMPy and determines the computation, of
-        alpha_p and alpha_power values.
-
-        Setting this mode triggers the pre-computation of parameters
-
-        :param mode_num: Mode number, must be 1 or 2
-
-        :raises ValueError: Incorrect mode number
-
-        :return: None
-        """
-        if mode_num not in [1, 2]:
-            raise ValueError(f"mode number {mode_num} not in [1, 2")
-        self.mode = mode_num
-        self._precompute_static_parameters()
-
-    def get_alpha_power(self, swh):
-        if self.weighted:
-            if self.mode == 1:
-                ind = bn.nanargmin(abs(self.lut.alphap_weight[:, 0] - swh))
-                alpha_p = self.lut.alphap_weight[:, 1][ind]
-                alpha_power = 0.47356
-            elif self.mode == 2:
-                alpha_p = 0.42349
-                alpha_power = 0.47356
-            else:
-                raise ValueError(f"Invalid mode: {self.mode} (must be 1 or 2)")
+        if self.sar.hamming_weighting:
+            match engine:
+                case WaveformModelEngines.SAMOSA:
+                    ind = bn.nanargmin(abs(self.lut.alphap_weight[:, 0] - swh))
+                    alpha_p = self.lut.alphap_weight[:, 1][ind]
+                    alpha_power = 0.47356
+                case WaveformModelEngines.SAMOSAPLUS:
+                    alpha_p = 0.42349
+                    alpha_power = 0.47356
         else:
             alpha_p, alpha_power = self.get_alpha_power_no_weights(swh)
         return alpha_p, alpha_power
@@ -207,10 +135,126 @@ class SAMOSAWaveformModel(object):
         alpha_power = self.lut.alphapower_noweight[:, 1][ind]
         return alpha_p, alpha_power
 
+
+class FixedScenarioVariables(object):
+
+    def __init__(
+                self,
+                engine: WaveformModelEngines,
+                scenario: ScenarioData,
+                use_slope: bool = False,
+    ) -> None:
+            """
+            A class for the pre-computation of fixed variables for the SAMOSA+ waveform model.
+
+            This class exists for the purpose of fitting the waveform model to data,
+            where the fixed variables can be pre-computed once and don't need to be computed
+            in every iteration of the fitting process.
+
+            :param engine: The waveform model engine to use (SAMOSA or SAMOSA+)
+            :param scenario: The waveform model input data (sensor parameters, platform location, SAR parameters)
+            :param use_slope:
+            """
+            pass
+            # self.scenario = scenario
+            # self.flag_slope = int(use_slope)
+            # self.mask_ranges = mask_ranges
+            # self.lut = CS2_LOOKUP_TABLES  # TODO: Move to scenario data (specifically radar parameters)
+            # self.static_parameters = {}
+            # self._precompute_static_parameters()
+
+
+class SAMOSAFitHouseKeeping(object):
+
+    def __init__(
+            self,
+            collect_fit_params: bool = False
+    ) -> None:
+        """
+        A class for the housekeeping of the SAMOSA+ waveform model fitting process.
+
+        This class exists for the purpose of fitting the waveform model to data,
+        where the fit parameters can be collected and stored for later analysis.
+
+        :param collect_fit_params: Whether to collect fit parameters during the fitting process.
+        """
+        self.collect_fit_params = collect_fit_params
+        self.fit_params = []
+        self.generate_ddm_counter = 0
+
+    def append(self, waveform_model_parameters: "WaveformModelParameters") -> None:
+        """
+        Append the fit parameters to the list of fit parameters.
+
+        :param waveform_model_parameters: The fit parameters to append.
+        """
+        self.fit_params.append(waveform_model_parameters)
+        self.generate_ddm_counter += 1
+
+
+class SAMOSAWaveforModelConfig(BaseModel):
+    """
+    A class for the configuration of the SAMOSA+ waveform model.
+    """
+    use_slope: bool = False
+    beamsamp_factor: PositiveInt = 1
+    norm_model_power: bool = True
+
+    @property
+    def flag_slope(self) -> int:
+        return int(self.use_slope)
+
+
+class SAMOSAWaveformModel(object):
+    """
+    A class for the modeling of waveforms using the SAMOSA+ waveform model
+    (Currently ocean waveforms with free parameter of range and significant waveheight only)
+    """
+
+    def __init__(
+            self,
+            engine: WaveformModelEngines,
+            scenario: ScenarioData,
+            use_slope: bool = False,
+            beamsamp_factor: PositiveInt = 1,
+            norm_model_power: bool = True,
+            collect_fit_params: bool = False
+    ) -> None:
+        """
+        Initialize the forward model
+
+        :param engine:
+        :param scenario:
+        :param use_slope:
+        """
+
+        # Store the input parameters
+        self.engine = engine
+        self.scenario = scenario
+        self.cfg = SAMOSAWaveforModelConfig(
+            use_slope=use_slope,
+            beamsamp_factor=beamsamp_factor,
+            norm_model_power=norm_model_power
+        )
+
+        # Pre-compute the parameters that are independent of the waveform model parameters (SWH, MSS, epoch)
+        # NOTE: This is done for efficiency during repeated computations of the waveform model
+        #       with the same scenario (e.g. during fitting)
+        self.static_parameters = FixedScenarioVariables(
+            engine=engine,
+            scenario=scenario,
+            use_slope=use_slope
+        )
+
+        # Housekeeping variables
+        # NOTE: These are only used to store fitting parameters
+        #       used for each waveform model computation for each iteration
+        #       and are not required for the waveform model itself
+        self.fit_params = SAMOSAFitHouseKeeping(collect_fit_params)
+
     def generate_delay_doppler_waveform(
             self,
             waveform_model_parameters: "WaveformModelParameters",
-            norm_model_power: bool = True
     ) -> "WaveformModelOutput":
         """
         Compute a delay doppler waveform. This is derived from sampy.SAMOSA.__Generate_SamosaDDM
@@ -235,7 +279,7 @@ class SAMOSAWaveformModel(object):
         # --- Collect the waveform model parameters if requested --->
         # This is useful to restore the parameters variations
         # in an optimization process
-        if self.collect_fit_params:
+        if self.fit_params.collect_fit_params:
             self.fit_params.append(wfm)
 
         # --- Compute variables independent of waveform model parameters --->
@@ -307,7 +351,7 @@ class SAMOSAWaveformModel(object):
 
         delay_doppler_map_masked = ddm_mask_ranges(
             delay_doppler_map,
-            self.mask_ranges,
+            self.ddm_masking,
             geo,
             p["Lx"],
             self.scenario.sar.span,
@@ -319,13 +363,11 @@ class SAMOSAWaveformModel(object):
         waveform_power = bn.nansum(delay_doppler_map, 1) / len(beam_index)
         peak_power = bn.nanmax(waveform_power)
 
-        if norm_model_power:
+        if self.cfg.norm_model_power:
             waveform_model = wfm.amplitude_scale * (waveform_power/peak_power + wfm.thermal_noise)
         else:
             waveform_model = waveform_power.copy()
         # waveform_model_scaled_power = amplitude_scale * (pr / np.nanmax(pr)) + self.normed_waveform.thermal_noise
-
-        self.generate_ddm_counter += 1
 
         # Compile the output
         return WaveformModelOutput(

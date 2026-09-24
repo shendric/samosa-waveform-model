@@ -99,12 +99,15 @@ class SensorParameters:
     bandwidth: float  # Sampled Bandwidth in Hz [Bs]
     beam_width_along: float  # (rad) Antenna 3 dB beamwidth (along-track) [theta_3x]
     beam_width_across: float  # (rad) Antenna 3 dB beamwidth (cross-track) [theta_3y]
+    alpha_power_ddm: float  # The alpha power for the delay doppler map (DDM) scaling
+    alpha_power_ptr_constant: float  # The alpha power for the PTR constant scaling
     num_look_min: float = -90.0
     num_look_max: float = 90.0
     # The default value of 1.0 leads to a fairly small number of doppler cells in the delay-doppler map (DDM).
     # If DDM mask is activated (by default), then the waveform may become choppy.
-    # TODO: Consider to increase `beamsamp_factor` until all doppler beams are used beamsamp=4 will result in 181 looks)
+    # TODO: Consider to increase `beamsamp_factor` until all doppler beams are used beamsamp=4 will result in 181 looks) -> Move to waveform model config
     beamsamp_factor: float = 1.0  # Number of beams per doppler cell
+    lut_file: str = None  # Path to the LUT file for the waveform model
 
     @classmethod
     def get(cls, platform_name: str, radar_mode_name: str) -> "SensorParameters":
@@ -165,7 +168,7 @@ class SARParameters:
     span: np.ndarray = None
     beam_index: np.ndarray = None
     hamming_weighting: bool = False
-    weighting_factor: float = 1.4705
+    hamming_ptr_main_lobe_widening_factor: float = 1.4705
 
     def compute_multi_look_parameters(
             self,
