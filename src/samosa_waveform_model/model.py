@@ -18,7 +18,7 @@ from typing import Dict, Optional, Tuple
 from samosa_waveform_model.enums import WaveformModelEngines
 from samosa_waveform_model.dataclasses import (SensorParameters, PlatformLocation, SARParameters,
                                                CONSTANTS, WaveformModelOutput, WaveformModelParameters)
-from samosa_waveform_model.lut import CS2_LOOKUP_TABLES
+from samosa_waveform_model.lut import SAMOSA_MODEL_TERMS_LUT
 
 
 from samosa_waveform_model.funcs_py import (compute_gl, compute_gamma0, compute_t_kappa, compute_f0, compute_f1,
@@ -237,6 +237,9 @@ class SAMOSAWaveformModel(object):
             norm_model_power=norm_model_power
         )
 
+        # Store the lookup tables for the SAMOSA+ waveform model
+        self.model_term_lut = SAMOSA_MODEL_TERMS_LUT
+
         # Pre-compute the parameters that are independent of the waveform model parameters (SWH, MSS, epoch)
         # NOTE: This is done for efficiency during repeated computations of the waveform model
         #       with the same scenario (e.g. during fitting)
@@ -314,6 +317,7 @@ class SAMOSAWaveformModel(object):
         `alpha_power` is an average and constant values which should be used for the 
         delay dopper map scaling factor (thus the alpha_power lookup table in SAMPy
         only includes a singular alpha power value and is the same for Hamming and no Hamming).
+        -> Renamed here to `alpha_power_ddm`
         
         `alpha_p`instead may vary as function of significant waveheight. 
         But when zero-padding is applied, than alpha_p may also be constant 
@@ -321,11 +325,13 @@ class SAMOSAWaveformModel(object):
         Nevertheless, SAMPy sets `alpha_p` to 0.42349 for SAMOSA+. 
         But since the SAMOSA+ retracker uses SAMOSA (with nu set to zero) for the 
         significant waveheight step, an lookup table for `alpha_p` is required 
-        for both Hamming and no-Hamming configurations. 
+        for both Hamming and no-Hamming configurations.
+        -> Renamed here to `alpha_power_ptr` (for the range PTR)
         """
-        alpha_p, alpha_power = self.get_alpha_power(swh)
 
-        gl = compute_gl(alpha_p, p["Lx"], p["Ly"], p["Lz"], beam_index, p["ls"], swh)
+        alpha_power_ptr, alpha_power_ddm = self.scenario.get_alpha_power(self.engine, swh)
+
+        gl = compute_gl(alpha_power_ptr, p["Lx"], p["Ly"], p["Lz"], beam_index, p["ls"], swh)
 
         csi = gl[None, :] * dk[:, None]
         z = 1. / 4. * csi ** 2
@@ -337,16 +343,18 @@ class SAMOSAWaveformModel(object):
         t_kappa = compute_t_kappa(z, dk, nu, alt, p["alpha_y"], p["yp"], p["Ly"])
 
         # f0 : zero order term of the SAMOSA SAR return waveform model
-        f0 = compute_f0(csi, p["csi_min_F0"], p["csi_max_F0"], z, lut)
+        f0 = self.model_term_lut.get(order=0, xi=csi, clip_xi_range=True)
+        # f0 = compute_f0(csi, p["csi_min_F0"], p["csi_max_F0"], z, lut)
 
         # f1 : first order term of the SAMOSA SAR return waveform model
-        f1 = compute_f1(csi, p["csi_min_F1"], p["csi_max_F1"], z, lut)
+        # f1 = compute_f1(csi, p["csi_min_F1"], p["csi_max_F1"], z, lut)
+        f1 = self.model_term_lut.get(order=1, xi=csi, clip_xi_range=True)
 
         f = (f0 + sigma_z / p["Lg"] * t_kappa * gl * sigma_s * f1)
 
         # ddm: delay doppler map
         # TODO: Where is **4 in the const coming from? It is **2 in eq 3.15 in Dinardo 2020
-        const = np.sqrt(2. * np.pi * alpha_power ** 4)
+        const = np.sqrt(2. * np.pi * alpha_power_ddm ** 4)
         delay_doppler_map = const * np.sqrt(gl) * gamma_0 * f
 
         delay_doppler_map_masked = ddm_mask_ranges(
@@ -409,6 +417,8 @@ class SAMOSAWaveformModel(object):
         p["ls"] = self.flag_slope * geo.orbit_slope * geo.altitude / (geo.kappa * p["Lx"])
         p["xp"] = +geo.altitude * geo.pitch
         p["yp"] = -geo.altitude * geo.roll
+
+        # To be moved to SAMOSA+ LUT class
         p["csi_max_F0"] = np.max(lut.f0[:, 0])
         p["csi_min_F0"] = np.min(lut.f0[:, 0])
         p["csi_max_F1"] = np.max(lut.f1[:, 0])
