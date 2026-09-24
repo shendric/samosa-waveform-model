@@ -6,14 +6,13 @@
 
 __author__ = "Stefan Hendricks <stefan.hendricks@awi.de>"
 
-import warnings
 from warnings import warn
 import bottleneck as bn
 import pandas as pd
 import numpy as np
 
 from pydantic import BaseModel, PositiveInt
-from typing import Dict, Optional, Tuple
+from typing import Dict, Optional, Tuple, Union
 
 from samosa_waveform_model.enums import WaveformModelEngines
 from samosa_waveform_model.dataclasses import (SensorParameters, PlatformLocation, SARParameters,
@@ -209,7 +208,7 @@ class FixedScenarioParameters(object):
         p["alpha_y"] = factor / (geo.altitude ** 2. * rp.beam_width_across ** 2.)
 
         p["lg"] = geo.kappa / (2. * geo.altitude * p["alpha_y"])
-        p["xl"] = p["Lx"] * sar.beam_index
+        p["xl"] = p["lx"] * sar.beam_index
         p["ls"] = flag_slope * geo.orbit_slope * geo.altitude / (geo.kappa * p["lx"])
         p["xp"] = +geo.altitude * geo.pitch
         p["yp"] = -geo.altitude * geo.roll
@@ -279,7 +278,7 @@ class SAMOSAWaveformModel(object):
 
     def __init__(
             self,
-            engine: WaveformModelEngines,
+            engine: Union[str, WaveformModelEngines],
             scenario: ScenarioData,
             use_slope: bool = False,
             norm_model_power: bool = True,
@@ -313,6 +312,8 @@ class SAMOSAWaveformModel(object):
         """
 
         # Store the input parameters with basic sanity check
+        if isinstance(engine, str):
+            engine = WaveformModelEngines(engine)
         assert isinstance(engine, WaveformModelEngines), "engine must be an instance of WaveformModelEngines"
         self.engine = engine
         assert isinstance(scenario, ScenarioData), "scenario must be an instance of ScenarioData"

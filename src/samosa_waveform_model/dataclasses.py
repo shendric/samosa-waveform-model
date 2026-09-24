@@ -25,6 +25,8 @@ PLATFORM_PRESETS = {
             burst_repetition_interval=0.0117929625,
             frequency=13.575e9,
             bandwidth=320e6,
+            alpha_power_ddm=0.47356,
+            alpha_power_ptr=0.42349,
             beam_width_along=np.deg2rad(1.10),
             beam_width_across=np.deg2rad(1.22)
         ),
@@ -39,8 +41,11 @@ PLATFORM_PRESETS = {
             burst_repetition_interval=0.0117929625,
             frequency=13.575e9,
             bandwidth=320e6,
+            alpha_power_ddm=0.47356,
+            alpha_power_ptr=0.42349,
             beam_width_along=np.deg2rad(1.10),
             beam_width_across=np.deg2rad(1.22)
+
         )
     }
 }
@@ -100,7 +105,7 @@ class SensorParameters:
     beam_width_along: float  # (rad) Antenna 3 dB beamwidth (along-track) [theta_3x]
     beam_width_across: float  # (rad) Antenna 3 dB beamwidth (cross-track) [theta_3y]
     alpha_power_ddm: float  # The alpha power for the delay doppler map (DDM) scaling
-    alpha_power_ptr_constant: float  # The alpha power for the PTR constant scaling
+    alpha_power_ptr: float  # The alpha power for the PTR constant scaling
     num_look_min: float = -90.0
     num_look_max: float = 90.0
     # The default value of 1.0 leads to a fairly small number of doppler cells in the delay-doppler map (DDM).

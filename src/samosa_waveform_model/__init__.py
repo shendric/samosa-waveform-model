@@ -17,6 +17,7 @@ __all__ = [
     "scenarios"
 ]
 
+from samosa_waveform_model.enums import WaveformModelEngines
 from samosa_waveform_model.dataclasses import SensorParameters, SARParameters, PlatformLocation, WaveformModelParameters
 from samosa_waveform_model.model import ScenarioData, SAMOSAWaveformModel
 from samosa_waveform_model.lut import SAMOSAModelTermsTable, AlphaPowerPTRTable

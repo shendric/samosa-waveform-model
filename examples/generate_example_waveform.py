@@ -21,7 +21,7 @@ def main():
     # Initialize the SAMOSA waveform model with sensor
     # definition, orbit parameters and SAR options
     scenario_data = ScenarioData.cryosat2_sar_example()
-    waveform_model = SAMOSAWaveformModel(scenario_data)
+    waveform_model = SAMOSAWaveformModel("samosa+", scenario_data)
 
     # Compute waveform based on epoch, swh, mss
     model_input = SurfaceTypeLead()
