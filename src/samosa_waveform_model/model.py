@@ -6,12 +6,14 @@
 
 __author__ = "Stefan Hendricks <stefan.hendricks@awi.de>"
 
+import warnings
+from warnings import warn
 import bottleneck as bn
 import pandas as pd
 import numpy as np
-from typing import Dict, Optional, Literal, Tuple
+from typing import Union
+from typing import Dict, Optional, Literal
 
-from samosa_waveform_model.enums import WaveformModelEngines
 from samosa_waveform_model.dataclasses import (SensorParameters, PlatformLocation, SARParameters,
                                                CONSTANTS, WaveformModelOutput, WaveformModelParameters)
 from samosa_waveform_model.lut import CS2_LOOKUP_TABLES
@@ -49,20 +51,10 @@ class ScenarioData(object):
         """
         A class for the waveform model input
 
-        :param rp: Sensor(Radar) parameters
-        :param geo: Platform location parameters
-        :param sar: SAR processing parameters
         """
         self.rp = rp
         self.geo = geo
         self.sar = sar
-
-    def get_alpha_power(
-            self,
-            engine: WaveformModelEngines,
-            swh: Optional[float] = None
-    ) -> Tuple[float, float]:
-        breakpoint()
 
     @classmethod
     def cryosat2_sar_example(
@@ -141,8 +133,11 @@ class SAMOSAWaveformModel(object):
             self,
             engine: WaveformModelEngines,
             scenario: ScenarioData,
+            engine: str = "samosa+",              # Fixme: Currently don't doing anything
             use_slope: bool = False,
-            mask_ranges: bool = None,
+            weight_factor: float = 1.4705,   # Todo: Move to sensor properties (hamming PTR main lobe widening factor)
+            mask_ranges: bool = None,             # Todo: Rename to delay doppler map masking for clearer intent
+            mode: Literal[1, 2] = 1,              # Todo: Rename to waveform model (SAMOSA or SAMOSA+, see `engine` parameter)
             collect_fit_params: bool = False
     ) -> None:
         """
@@ -151,17 +146,18 @@ class SAMOSAWaveformModel(object):
         :param scenario:
         :param engine:
         :param use_slope:
-        :param weighted:
         :param weight_factor:
         :param mask_ranges:
         :param mode:
         """
-
         self.scenario = scenario
         self.engine = engine
         self.flag_slope = int(use_slope)
+        self.weighted = weight_factor is not None
+        self.weight_factor = weight_factor
+        self.mode = mode
         self.mask_ranges = mask_ranges
-        self.lut = CS2_LOOKUP_TABLES  # TODO: Move to scenario data (specifically radar parameters)
+        self.lut = CS2_LOOKUP_TABLES
         self.static_parameters = {}
         self.set_mode(self.mode)
         self.collect_fit_params = collect_fit_params
@@ -187,7 +183,6 @@ class SAMOSAWaveformModel(object):
         self.mode = mode_num
         self._precompute_static_parameters()
 
-    # Move to scenario data
     def get_alpha_power(self, swh):
         if self.weighted:
             if self.mode == 1:
@@ -204,6 +199,7 @@ class SAMOSAWaveformModel(object):
         return alpha_p, alpha_power
 
     def get_alpha_power_no_weights(self, swh):
+        # TODO: To be confirmed (and renamed) that weights means Hamming weighting
         ind = np.argmin(abs(self.lut.alphap_noweight[:, 0] - swh))
         alpha_p = self.lut.alphapower_noweight[:, 1][ind]
 
@@ -256,7 +252,34 @@ class SAMOSAWaveformModel(object):
         # surface elevation standard deviation
         sigma_z = (swh / 4.)
 
-        alpha_p, alpha_power = self.scenario.get_alpha_power(self.engine, swh)
+
+        """
+        Notes to the use of `alpha_p` and `alpha_power`: 
+        
+        In the formulas in Dinardo 2020, there is just on alpha_p. Here, in the code
+        the alpha_p goes into the computation of gl and alpha_power goes into
+        the scaling factor for delay doppler map.
+        
+        The reason for the two alpha_power factor could be that one is
+        for the range and one for the azimuth PTR.
+        
+        The parameter `alpha_p` goes into compute_gl and `alpha_power` goes into
+        the constant factor for the delay doppler map. 
+        
+        According to a code comment in pysamosa (https://pypi.org/project/pysamosa/), 
+        `alpha_power` is an average and constant values which should be used for the 
+        delay dopper map scaling factor (thus the alpha_power lookup table in SAMPy
+        only includes a singular alpha power value and is the same for Hamming and no Hamming).
+        
+        `alpha_p`instead may vary as function of significant waveheight. 
+        But when zero-padding is applied, than alpha_p may also be constant 
+        value (section 3.2.3 in Dinardo et al. 2020, with a fixed value of 0.55). 
+        Nevertheless, SAMPy sets `alpha_p` to 0.42349 for SAMOSA+. 
+        But since the SAMOSA+ retracker uses SAMOSA (with nu set to zero) for the 
+        significant waveheight step, an lookup table for `alpha_p` is required 
+        for both Hamming and no-Hamming configurations. 
+        """
+        alpha_p, alpha_power = self.get_alpha_power(swh)
 
         gl = compute_gl(alpha_p, p["Lx"], p["Ly"], p["Lz"], beam_index, p["ls"], swh)
 
@@ -278,6 +301,7 @@ class SAMOSAWaveformModel(object):
         f = (f0 + sigma_z / p["Lg"] * t_kappa * gl * sigma_s * f1)
 
         # ddm: delay doppler map
+        # TODO: Where is **4 in the const coming from? It is **2 in eq 3.15 in Dinardo 2020
         const = np.sqrt(2. * np.pi * alpha_power ** 4)
         delay_doppler_map = const * np.sqrt(gl) * gamma_0 * f
 
