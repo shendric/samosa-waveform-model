@@ -53,6 +53,8 @@ class ScenarioData(object):
         self.geo = geo
         self.sar = sar
 
+    def get_alpha_power(self, engine, swh: Optional[float] = None):
+
     @classmethod
     def cryosat2_sar_example(
             cls,
@@ -105,7 +107,7 @@ class SAMOSAWaveformModel(object):
             weighted: bool = False,
             weight_factor: float = 1.4705,
             mask_ranges: bool = None,
-            mode: Literal[1, 2] = 1,
+            mode: Literal[1, 2] = 1,   # TODO: replace by engine mode: 1 -> SAMOSA, mode: 2 -> SAMOSA+
             collect_fit_params: bool = False
     ) -> None:
         """
@@ -153,6 +155,7 @@ class SAMOSAWaveformModel(object):
         self.mode = mode_num
         self._precompute_static_parameters()
 
+    # Move to scenario data
     def get_alpha_power(self, swh):
         if self.weighted:
             if self.mode == 1:
@@ -282,6 +285,7 @@ class SAMOSAWaveformModel(object):
         )
 
     def _precompute_static_parameters(self) -> None:
+        # TODO: Check if more parameters can be computed with fixed alpha power value not depended on SWH
 
         geo = self.scenario.geo
         rp = self.scenario.rp

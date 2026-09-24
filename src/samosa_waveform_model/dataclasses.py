@@ -128,6 +128,7 @@ class SensorParameters:
 
         :return:
         """
+        # TODO: Move to subclasses
         return cls(**PLATFORM_PRESETS["cryosat2"]["sar"])
 
     @cached_property
@@ -160,6 +161,7 @@ class SARParameters:
     doppler_frequencies: np.ndarray = None
     span: np.ndarray = None
     beam_index: np.ndarray = None
+    hamming_weighting: bool = False
 
     def compute_multi_look_parameters(
             self,
