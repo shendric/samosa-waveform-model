@@ -13,9 +13,8 @@ are not loaded multiple times for repeated calls to the waveform model during wa
 
 __author__ = "Stefan Hendricks <stefan.hendricks@awi.de>"
 
-
 from pathlib import Path
-from typing import Literal
+from typing import Literal, Optional
 import numpy as np
 
 
@@ -52,6 +51,10 @@ class SAMOSAModelTermsTable(object):
         """
         Load the SAMOSA model terms lookup tables from the package's lut folder.
 
+        The lookup table files contains two columns (xi, f0) and (xi, f1) respectively.
+        The first column is the independent variable xi, which is expected to be identical
+        in the two files.
+
         :return: SAMOSAModelTermsLUT object
         """
         lut_folder = Path(__file__).parent / "lut"
@@ -77,7 +80,7 @@ class SAMOSAModelTermsTable(object):
 SAMOSA_MODEL_TERMS_LUT = SAMOSAModelTermsTable.from_package_luts()
 
 
-class AlphaPowerPTRLUT(object):
+class AlphaPowerPTRTable(object):
     """
     The class for the alphaPower lookup table, which is used to compute the alphaPower term of the SAMOSA model.
     """
@@ -85,7 +88,9 @@ class AlphaPowerPTRLUT(object):
     def __init__(
             self,
             swh: np.ndarray,
-            alpha_power: np.ndarray
+            alpha_power: np.ndarray,
+            platform: Optional[str] = None,
+            hamming: Optional[bool] = None
     ) -> None:
         """
         Stores the lookup table for the alphaPower term of the SAMOSA model depended on the significant wave height (swh).
@@ -93,20 +98,36 @@ class AlphaPowerPTRLUT(object):
         :param swh: The significant wave height
         :param alpha_power: The alphaPower term
         """
+        self.platform = platform
+        self.hamming = hamming
         self.swh = swh
         self.alpha_power = alpha_power
 
     @classmethod
-    def from_file(cls, lut_file: Path) -> "AlphaPowerPTRLUT":
+    def from_file(
+            cls,
+            platform: Optional[str] = None,
+            hamming: Optional[bool] = None
+    ) -> "AlphaPowerPTRTable":
         """
         Load the lookup table from a file
-        :param lut_file: Path to the lookup table file
-        :return: AlphaPowerPTRLUT object
+
+        :param platform: Optional platform name for the lookup table.
+            Needed to construct the expected filename.
+        :param hamming: Optional boolean indicating if the lookup table is for hamming or no-hamming windowing.
+            Needed to construct the expected filename.
+
+        :raises FileNotFoundError: If the lookup table file does not exist
+
+        :return: AlphaPowerPTRTable object
         """
-        data = np.genfromtxt(lut_file, comments='#', delimiter=',')
+        expected_filename = __LUT_PATH__ / f"{platform}" / f"alphaPower_table_{platform}_{'hamming' if hamming else 'nohamming'}.csv"
+        if not expected_filename.is_file():
+            raise FileNotFoundError(f"Lookup table file not found: {expected_filename}")
+        data = np.genfromtxt(expected_filename, comments='#', delimiter=',')
         swh = data[:, 0]
         alpha_power = data[:, 1]
-        return cls(swh, alpha_power)
+        return cls(swh, alpha_power, platform=platform, hamming=hamming)
 
     def get(self, swh_value: float) -> float:
         breakpoint()

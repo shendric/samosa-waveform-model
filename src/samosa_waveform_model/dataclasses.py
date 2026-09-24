@@ -167,6 +167,7 @@ class SARParameters:
     doppler_frequencies: np.ndarray = None
     span: np.ndarray = None
     beam_index: np.ndarray = None
+    beamsamp_factor: int = 1
     hamming_weighting: bool = False
     hamming_ptr_main_lobe_widening_factor: float = 1.4705
 
@@ -326,4 +327,5 @@ class WaveformModelOutput:
     epoch: float
     significant_wave_height: float
     mean_square_slope: float
+    amplitude_scale: float
     gamma_0: np.ndarray

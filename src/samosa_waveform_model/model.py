@@ -51,7 +51,7 @@ class ScenarioData(object):
 
     ) -> None:
         """
-        Bundle of all input parameters for the SAMOSA+ waveform model. .
+        Bundle of all input parameters for the SAMOSA+ waveform model.
 
         :param rp: Sensor (Radar) parameters
         :param geo: Location and attitude of the platform (satellite)
@@ -60,6 +60,20 @@ class ScenarioData(object):
         self.rp = rp
         self.geo = geo
         self.sar = sar
+
+    def compute_static_parameters(self, engine: WaveformModelEngines, flag_slope: int = 0) -> "FixedScenarioParameters":
+        """
+        Compute the static parameters that are independent of the waveform model parameters (SWH, MSS, epoch)
+        and solely depends on the scenario data (sensor parameters, platform location, SAR parameters) and
+        the waveform model configuration. Therefore, the computation of the static parameters is
+        delayed and not done in the constructor of the ScenarioData class.
+
+        :param engine: Either "samosa" or "samosa+"
+        :param flag_slope: Integer flag to indicate whether to use the slope of the surface in the computation (0 for no slope, 1 for slope)
+
+        :return: FixedScenarioParameters
+        """
+        return FixedScenarioParameters(engine, self, flag_slope)
 
     @classmethod
     def cryosat2_sar_example(
@@ -112,7 +126,6 @@ class ScenarioData(object):
 
         :return:
         """
-
         if self.sar.hamming_weighting:
             match engine:
                 case WaveformModelEngines.SAMOSA:
@@ -122,6 +135,8 @@ class ScenarioData(object):
                 case WaveformModelEngines.SAMOSAPLUS:
                     alpha_p = 0.42349
                     alpha_power = 0.47356
+                case _:
+                    raise ValueError(f"Unknown waveform model engine: {engine}")
         else:
             alpha_p, alpha_power = self.get_alpha_power_no_weights(swh)
         return alpha_p, alpha_power
@@ -136,13 +151,13 @@ class ScenarioData(object):
         return alpha_p, alpha_power
 
 
-class FixedScenarioVariables(object):
+class FixedScenarioParameters(object):
 
     def __init__(
                 self,
                 engine: WaveformModelEngines,
                 scenario: ScenarioData,
-                use_slope: bool = False,
+                flag_slope: int = 0,
     ) -> None:
             """
             A class for the pre-computation of fixed variables for the SAMOSA+ waveform model.
@@ -153,16 +168,67 @@ class FixedScenarioVariables(object):
 
             :param engine: The waveform model engine to use (SAMOSA or SAMOSA+)
             :param scenario: The waveform model input data (sensor parameters, platform location, SAR parameters)
-            :param use_slope:
+            :param flag_slope: Integer flag to indicate whether to use the orbit slope of the surface in the computation
+                (0 for no slope, 1 for slope)
             """
-            pass
-            # self.scenario = scenario
-            # self.flag_slope = int(use_slope)
-            # self.mask_ranges = mask_ranges
-            # self.lut = CS2_LOOKUP_TABLES  # TODO: Move to scenario data (specifically radar parameters)
-            # self.static_parameters = {}
-            # self._precompute_static_parameters()
+            self.p = self.compute_static_parameters(engine, scenario, flag_slope)
 
+    @staticmethod
+    def compute_static_parameters(
+            engine: WaveformModelEngines,
+            scenario: ScenarioData,
+            flag_slope: int
+    ) -> Dict:
+        """
+        Pre-compute the parameters that are independent of the waveform model parameters (SWH, MSS, epoch)
+        and solely depends on the scenario data (sensor parameters, platform location, SAR parameters)
+
+        :param engine: The waveform model engine to use (SAMOSA or SAMOSA+)
+        :param scenario: The waveform model input data (sensor parameters, platform location, SAR parameters)
+        :param flag_slope: Whether to use the orbit slope in the computation (integer 0 for no slope, 1 for slope)
+
+        :return: A dictionary of pre-computed static parameters
+        """
+
+        # short variable names for brevity
+        geo = scenario.geo
+        rp = scenario.rp
+        sar = scenario.sar
+
+        # Compute spatial and vertical resolution
+        p = {"lx": CONSTANTS.c0 * geo.altitude / (2. * geo.velocity * rp.frequency * rp.pulses_per_burst * rp.pri_sar)}
+        if sar.hamming_weighting and engine == WaveformModelEngines.SAMOSAPLUS:
+            p["lx"] *= sar.hamming_ptr_main_lobe_widening_factor
+        # Ly: pulse-limited radius
+        p["ly"] = np.sqrt(CONSTANTS.c0 * geo.altitude / (geo.kappa * rp.bandwidth))
+        # Lz: vertical resolution
+        p["lz"] = CONSTANTS.c0 / (2. * rp.bandwidth)
+
+        factor = 8. * np.log(2.)
+        p["alpha_x"] = factor / (geo.altitude ** 2. * rp.beam_width_along ** 2.)
+        p["alpha_y"] = factor / (geo.altitude ** 2. * rp.beam_width_across ** 2.)
+
+        p["lg"] = geo.kappa / (2. * geo.altitude * p["alpha_y"])
+        p["xl"] = p["Lx"] * sar.beam_index
+        p["ls"] = flag_slope * geo.orbit_slope * geo.altitude / (geo.kappa * p["lx"])
+        p["xp"] = +geo.altitude * geo.pitch
+        p["yp"] = -geo.altitude * geo.roll
+        return p
+
+    def __getitem__(self, item):
+        """
+        Provide dictionary-like access to the pre-computed static parameters.
+
+        :param item: Item name
+
+        :raises KeyError: If the item is not found in the pre-computed parameters.
+
+        :return: Value
+        """
+        if item in self.p:
+            return self.p[item]
+        else:
+            raise KeyError(f"Item '{item}' not found in pre-computed static parameters [{self.p.keys()}].")
 
 class SAMOSAFitHouseKeeping(object):
 
@@ -192,13 +258,13 @@ class SAMOSAFitHouseKeeping(object):
         self.generate_ddm_counter += 1
 
 
-class SAMOSAWaveforModelConfig(BaseModel):
+class SAMOSAWaveformModelConfig(BaseModel):
     """
     A class for the configuration of the SAMOSA+ waveform model.
     """
     use_slope: bool = False
-    beamsamp_factor: PositiveInt = 1
     norm_model_power: bool = True
+    use_masked_ddm: bool = True
 
     @property
     def flag_slope(self) -> int:
@@ -216,40 +282,64 @@ class SAMOSAWaveformModel(object):
             engine: WaveformModelEngines,
             scenario: ScenarioData,
             use_slope: bool = False,
-            beamsamp_factor: PositiveInt = 1,
             norm_model_power: bool = True,
+            use_masked_ddm: bool = True,
             collect_fit_params: bool = False
     ) -> None:
         """
-        Initialize the forward model
+        Initialize the SAMOSA/SAMOSA+ waveform model with the given scenario data and configuration parameters.
 
-        :param engine:
-        :param scenario:
-        :param use_slope:
+        Static parameters that are independent of the waveform model parameters (SWH, MSS, epoch) and solely depend
+        on the scenario data (sensor parameters, platform location, SAR parameters) and the SAMOSA waveform model
+        configuration keywords are pre-computed and stored in the `self.scenario.static_parameters`.
+
+        To compute the actual waveform model, call the `generate_delay_doppler_waveform` method with
+        the desired waveform model parameters.
+
+        :param engine: Either `samosa` or `samosa+` to select the waveform model engine.
+            - `samosa`: Uses the assumption of an infinite diffusive surface (nu = 1/mss = 0)
+               and selects different alpha power values for the delay doppler map scaling and the range
+               PTR estimation. In the original SAMPy implementation, this waveform model
+               is used for the significant waveheight estimation.
+            - `samosa+`: Allows finite mss values (nu = 1/mss > 0) and uses a fixed alpha power value for
+               both the delay doppler map scaling and the range PTR estimation. In the original SAMPy implementation,
+               this waveform model is used for the epoch and mean square slope estimation.
+        :param scenario: The scenario data for the waveform model including sensor parameters, platform location,
+            and SAR parameters.
+        :param use_slope: Whether to use the slope of the surface in the computation (boolean).
+        :param norm_model_power: Whether to normalize the model power of the computed waveform (boolean).
+        :param use_masked_ddm: Whether to use a masked delay doppler map for waveform computation (boolean).
+        :param collect_fit_params: Whether to collect fit parameters (boolean).
         """
 
-        # Store the input parameters
+        # Store the input parameters with basic sanity check
+        assert isinstance(engine, WaveformModelEngines), "engine must be an instance of WaveformModelEngines"
         self.engine = engine
+        assert isinstance(scenario, ScenarioData), "scenario must be an instance of ScenarioData"
         self.scenario = scenario
-        self.cfg = SAMOSAWaveforModelConfig(
-            use_slope=use_slope,
-            beamsamp_factor=beamsamp_factor,
-            norm_model_power=norm_model_power
-        )
 
-        # Store the lookup tables for the SAMOSA+ waveform model
-        self.model_term_lut = SAMOSA_MODEL_TERMS_LUT
+        # Store the configuration parameters for the SAMOSA+ waveform model
+        # (In separate class to reduce attribute clutter)
+        self.cfg = SAMOSAWaveformModelConfig(
+            use_slope=use_slope,
+            norm_model_power=norm_model_power,
+            use_masked_ddm=use_masked_ddm
+        )
 
         # Pre-compute the parameters that are independent of the waveform model parameters (SWH, MSS, epoch)
+        # and solely depends on the scenario data (sensor parameters, platform location, SAR parameters)
+        # and the SAMOSA waveform model configuration.
         # NOTE: This is done for efficiency during repeated computations of the waveform model
         #       with the same scenario (e.g. during fitting)
-        self.static_parameters = FixedScenarioVariables(
-            engine=engine,
-            scenario=scenario,
-            use_slope=use_slope
-        )
+        self.static_parameters = self.scenario.compute_static_parameters(engine, self.cfg.flag_slope)
 
-        # Housekeeping variables
+        # Store the lookup tables for the SAMOSA+ waveform model
+        # NOTE: The f0 and f1 lookup table files have been read and stored
+        #       during the package initialization to avoid multiple reading of the files
+        #       by repeated calls to the waveform model
+        self.model_term_lut = SAMOSA_MODEL_TERMS_LUT
+
+        # Housekeeping variables (For waveform fitting)
         # NOTE: These are only used to store fitting parameters
         #       used for each waveform model computation for each iteration
         #       and are not required for the waveform model itself
@@ -260,41 +350,49 @@ class SAMOSAWaveformModel(object):
             waveform_model_parameters: "WaveformModelParameters",
     ) -> "WaveformModelOutput":
         """
-        Compute a delay doppler waveform. This is derived from sampy.SAMOSA.__Generate_SamosaDDM
+        Compute a delay doppler waveform for the given waveform model parameters.
+
+        NOTE: This method is derived from sampy.SAMOSA.__Generate_SamosaDDM in the
+        original SAMPy implementation of the SAMOSA+ waveform model.
 
         :param waveform_model_parameters:
 
-        :return:
+        :return: The computed waveform model output including the delay doppler map,
+            the waveform power, and other parameters as a dataclass.
         """
 
         # Create short variables name for brevity of some parameters
         geo = self.scenario.geo
         rp = self.scenario.rp
         wfm = waveform_model_parameters
-        lut = self.lut
-        swh = wfm.significant_wave_height
-        # nu = 1. / wfm.mean_square_slope
-        nu = wfm.nu
-        alt = geo.altitude
+        swh = float(wfm.significant_wave_height)
+        nu = float(wfm.nu)
+        alt = float(geo.altitude)
         tau = self.scenario.rp.tau - wfm.epoch
         beam_index = self.scenario.sar.beam_index
+        p = self.static_parameters
 
-        # --- Collect the waveform model parameters if requested --->
+        # Some sanity checks on the input parameters
+        if self.engine == WaveformModelEngines.SAMOSA:
+            # For SAMOSA engine, nu must be set to 0 (infinite diffusive surface)
+            try:
+                assert nu < 1e-12, "For SAMOSA engine, nu must be set to 0 (infinite diffusive surface)"
+            except AssertionError as e:
+                warn(f"{e}. Setting nu to 0 for SAMOSA engine.")
+                nu = 0.0
+
+        # --- Collect the waveform model parameters if requested ---
         # This is useful to restore the parameters variations
         # in an optimization process
         if self.fit_params.collect_fit_params:
             self.fit_params.append(wfm)
 
-        # --- Compute variables independent of waveform model parameters --->
-        # NOTE: For repeated computations, these all need to be computed once
-        p = self.static_parameters
-
         dk = (tau * rp.bandwidth)
         yk = 0 * dk
         dk_positive = np.where(dk > 0)
-        yk[dk_positive] = p["Ly"] * np.sqrt(dk[dk_positive])
+        yk[dk_positive] = p["ly"] * np.sqrt(dk[dk_positive])
 
-        sigma_s = (swh / (4. * p["Lz"]))
+        sigma_s = (swh / (4. * p["lz"]))
 
         # surface elevation standard deviation
         sigma_z = (swh / 4.)
@@ -331,7 +429,7 @@ class SAMOSAWaveformModel(object):
 
         alpha_power_ptr, alpha_power_ddm = self.scenario.get_alpha_power(self.engine, swh)
 
-        gl = compute_gl(alpha_power_ptr, p["Lx"], p["Ly"], p["Lz"], beam_index, p["ls"], swh)
+        gl = compute_gl(alpha_power_ptr, p["lx"], p["ly"], p["lz"], beam_index, p["ls"], swh)
 
         csi = gl[None, :] * dk[:, None]
         z = 1. / 4. * csi ** 2
@@ -340,91 +438,61 @@ class SAMOSAWaveformModel(object):
         gamma_0 = compute_gamma0(p["alpha_y"], p["yp"], p["alpha_x"], nu, alt, p["xl"], p["xp"], yk)
 
         # Equation 3.19 in Dinardo
-        t_kappa = compute_t_kappa(z, dk, nu, alt, p["alpha_y"], p["yp"], p["Ly"])
+        t_kappa = compute_t_kappa(z, dk, nu, alt, p["alpha_y"], p["yp"], p["ly"])
 
         # f0 : zero order term of the SAMOSA SAR return waveform model
-        f0 = self.model_term_lut.get(order=0, xi=csi, clip_xi_range=True)
+        f0 = self.model_term_lut.get(order=0, xi=csi, clip_xi_range=True, constant_xi0=True)
         # f0 = compute_f0(csi, p["csi_min_F0"], p["csi_max_F0"], z, lut)
 
         # f1 : first order term of the SAMOSA SAR return waveform model
         # f1 = compute_f1(csi, p["csi_min_F1"], p["csi_max_F1"], z, lut)
-        f1 = self.model_term_lut.get(order=1, xi=csi, clip_xi_range=True)
+        f1 = self.model_term_lut.get(order=1, xi=csi, clip_xi_range=True, constant_xi0=True)
 
-        f = (f0 + sigma_z / p["Lg"] * t_kappa * gl * sigma_s * f1)
+        f = (f0 + sigma_z / p["lg"] * t_kappa * gl * sigma_s * f1)
 
-        # ddm: delay doppler map
+        # Compute the delay doppler map (ddm)
         # TODO: Where is **4 in the const coming from? It is **2 in eq 3.15 in Dinardo 2020
         const = np.sqrt(2. * np.pi * alpha_power_ddm ** 4)
         delay_doppler_map = const * np.sqrt(gl) * gamma_0 * f
 
+        # Limit the delay doppler map to the valid ranges defined by the SAR mask ranges
+        # TODO: This function has been implemented for CryoSat-2, check for other missions
         delay_doppler_map_masked = ddm_mask_ranges(
             delay_doppler_map,
-            self.ddm_masking,
+            self.scenario.sar.mask_ranges,
             geo,
-            p["Lx"],
+            p["lx"],
             self.scenario.sar.span,
             rp.dr,
             beam_index
         )
 
         # compute the return power model
-        waveform_power = bn.nansum(delay_doppler_map, 1) / len(beam_index)
-        peak_power = bn.nanmax(waveform_power)
+        match self.cfg.use_masked_ddm:
+            case True:
+                waveform_power = bn.nansum(delay_doppler_map_masked, 1) / len(beam_index)
+            case False:
+                waveform_power = bn.nansum(delay_doppler_map, 1) / len(beam_index)
 
+        peak_power = bn.nanmax(waveform_power)
         if self.cfg.norm_model_power:
             waveform_model = wfm.amplitude_scale * (waveform_power/peak_power + wfm.thermal_noise)
         else:
             waveform_model = waveform_power.copy()
-        # waveform_model_scaled_power = amplitude_scale * (pr / np.nanmax(pr)) + self.normed_waveform.thermal_noise
 
         # Compile the output
         return WaveformModelOutput(
             tau,
             waveform_model,
-            wfm.amplitude_scale,
+            peak_power,
             delay_doppler_map,
             delay_doppler_map_masked,
             wfm.epoch,
             wfm.significant_wave_height,
             wfm.mean_square_slope,
+            wfm.amplitude_scale,
             gamma_0
         )
 
-    def _precompute_static_parameters(self) -> None:
-        # TODO: Check if more parameters can be computed with fixed alpha power value not depended on SWH
-
-        geo = self.scenario.geo
-        rp = self.scenario.rp
-        lut = self.lut
-        beam_index = self.scenario.sar.beam_index
-
-        p = {}
-
-        p["Lx"] = CONSTANTS.c0 * geo.altitude / (2. * geo.velocity * rp.frequency * rp.pulses_per_burst * rp.pri_sar)
-        if self.weighted and self.mode == 2:
-            p["Lx"] *= self.weight_factor
-
-        # Ly: pulse-limited radius
-        p["Ly"] = np.sqrt(CONSTANTS.c0 * geo.altitude / (geo.kappa * rp.bandwidth))
-
-        # Lz: vertical resolution
-        p["Lz"] = CONSTANTS.c0 / (2. * rp.bandwidth)
-        factor = 8. * np.log(2.)
-        p["alpha_x"] = factor / (geo.altitude ** 2. * rp.beam_width_along ** 2.)
-        p["alpha_y"] = factor / (geo.altitude ** 2. * rp.beam_width_across ** 2.)
-        p["Lg"] = geo.kappa / (2. * geo.altitude * p["alpha_y"])
-        p["xl"] = p["Lx"] * beam_index
-        p["ls"] = self.flag_slope * geo.orbit_slope * geo.altitude / (geo.kappa * p["Lx"])
-        p["xp"] = +geo.altitude * geo.pitch
-        p["yp"] = -geo.altitude * geo.roll
-
-        # To be moved to SAMOSA+ LUT class
-        p["csi_max_F0"] = np.max(lut.f0[:, 0])
-        p["csi_min_F0"] = np.min(lut.f0[:, 0])
-        p["csi_max_F1"] = np.max(lut.f1[:, 0])
-        p["csi_min_F1"] = np.min(lut.f1[:, 0])
-
-        self.static_parameters = p
-
     def get_fit_params(self) -> Optional[pd.DataFrame]:
-        return pd.DataFrame(self.fit_params) if self.collect_fit_params else None
+        return pd.DataFrame(self.fit_params.fit_params) if self.fit_params.collect_fit_params else None
