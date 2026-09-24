@@ -1,7 +1,10 @@
 # -*- coding: utf-8 -*-
 
 """
-
+To Do's:
+#TODO: Convert dataclasses to pydantic basemodels, so that they can be initialized from yaml files
+#TODO: Create yaml files for the different sensors
+#TODO: Create sensor catalog and which can be used to get as presets for the different sensors/radar modes
 """
 
 __author__ = "Stefan Hendricks <stefan.hendricks@awi.de>"
@@ -137,7 +140,6 @@ class SensorParameters:
 
         :return:
         """
-        # TODO: Move to subclasses
         return cls(**PLATFORM_PRESETS["cryosat2"]["sar"])
 
     @cached_property
