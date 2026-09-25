@@ -17,7 +17,7 @@ from typing import Dict, Optional, Tuple, Union, Literal, List
 
 from samosa_waveform_model.constants import CONSTANTS
 from samosa_waveform_model.enums import WaveformModelEngines
-from samosa_waveform_model.datamodels import SensorParameters, PlatformLocation, SARParameters
+from samosa_waveform_model.datamodels import PlatformLocation, SARParameters, SensorParameters
 from samosa_waveform_model.lut import SAMOSA_MODEL_TERMS_LUT, ALPHA_POWER_PTR_LUTS
 
 
@@ -92,7 +92,11 @@ class ScenarioData(object):
         self.geo = geo
         self.sar = sar
 
-    def compute_static_parameters(self, engine: WaveformModelEngines, flag_slope: int = 0) -> "FixedScenarioParameters":
+    def compute_static_parameters(
+            self,
+            engine: WaveformModelEngines,
+            flag_slope: int = 0
+    ) -> "FixedScenarioParameters":
         """
         Compute the static parameters that are independent of the waveform model parameters (SWH, MSS, epoch)
         and solely depends on the scenario data (sensor parameters, platform location, SAR parameters) and
@@ -100,48 +104,12 @@ class ScenarioData(object):
         delayed and not done in the constructor of the ScenarioData class.
 
         :param engine: Either "samosa" or "samosa+"
-        :param flag_slope: Integer flag to indicate whether to use the slope of the surface in the computation (0 for no slope, 1 for slope)
+        :param flag_slope: Integer flag to indicate whether to use the slope of the surface in the computation
+            (0 for no slope, 1 for slope)
 
         :return: FixedScenarioParameters
         """
         return FixedScenarioParameters(engine, self, flag_slope)
-
-    @classmethod
-    def cryosat2_sar_example(
-            cls,
-            loc_parameters: Optional[Dict] = None
-    ):
-        """ Real life CryoSat-2 lead example """
-
-        loc_parameters = {} if loc_parameters is None else loc_parameters
-
-        # Radar altimeter parameters
-        sp = SensorParameters.cryosat2_sar()
-        # Example position/attitude
-        # example_loc = dict(latitude=83.9625006,
-        #                    longitude=27.407605,
-        #                    altitude=728518.615,
-        #                    height_rate=0.466,
-        #                    pitch=-0.0010057948506807881,
-        #                    roll=-0.0015263707160146328,
-        #                    velocity=7518.711587141643)
-
-        loc_dict = dict(
-            latitude=83.9625006,
-            longitude=27.407605,
-            altitude=728518.615,
-            height_rate=0.,
-            pitch=0.,
-            roll=0.,
-            velocity=7518.711587141643
-        )
-        loc_dict.update(loc_parameters)
-
-        geo = PlatformLocation(**loc_dict)
-        sar = SARParameters()
-        sar.compute_multi_look_parameters(geo=geo, sp=sp)
-
-        return cls(sp, geo, sar)
 
     def get_alpha_power(
             self,

@@ -7,7 +7,7 @@ They provide predefined parameters for different surface types, such as typical 
 
 __author__ = "Stefan Hendricks <stefan.hendricks@awi.de>"
 
-from samosa_waveform_model.datamodels import WaveformModelParameters
+from samosa_waveform_model import WaveformModelParameters
 
 
 class SurfaceTypeLead(WaveformModelParameters):

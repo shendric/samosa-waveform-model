@@ -4,11 +4,11 @@
 """
 
 __author__ = "Stefan Hendricks <stefan.hendricks@awi.de>"
-
+__all__ = ["ORBIT_EXAMPLE"]
 from samosa_waveform_model.datamodels import PlatformLocation
 
 
-ORBIT_EXAMPE = PlatformLocation(
+ORBIT_EXAMPLE = PlatformLocation(
     latitude=83.9625006,
     longitude=27.407605,
     altitude=728518.615,

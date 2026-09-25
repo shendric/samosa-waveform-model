@@ -5,17 +5,17 @@
 
 __author__ = "Stefan Hendricks <stefan.hendricks@awi.de>"
 
-from dataclasses import dataclass
 from functools import cached_property
 from typing import Optional
 import numpy as np
+from pydantic import BaseModel, ConfigDict
 
 from samosa_waveform_model.constants import CONSTANTS
 
 
-@dataclass
-class SensorParameters:
+class SensorParameters(BaseModel):
     """ Information of the Radar Altimeter and Processing Configuration (hard coded to CryoSat-2 SIRAL SAR) """
+
     platform: str
     sensor: str
     mode: str
@@ -30,12 +30,10 @@ class SensorParameters:
     beam_width_across: float  # (rad) Antenna 3 dB beamwidth (cross-track) [theta_3y]
     alpha_power_ddm: float  # The alpha power for the delay doppler map (DDM) scaling
     alpha_power_ptr: float  # The alpha power for the PTR constant scaling
-    num_look_min: float = -90.0
-    num_look_max: float = 90.0
+    num_look_min: float
+    num_look_max: float
     # The default value of 1.0 leads to a fairly small number of doppler cells in the delay-doppler map (DDM).
     # If DDM mask is activated (by default), then the waveform may become choppy.
-    beamsamp_factor: float = 2.0  # Number of beams per doppler cell
-
 
     @cached_property
     def pri_sar(self) -> float:
@@ -60,12 +58,11 @@ class SensorParameters:
         return np.arange(-(num_gates / 2.) * dt, ((num_gates - 1) / 2) * dt, dt)
 
 
-@dataclass
-class SARParameters:
-
-    beamsamp_factor: int = 1
-    hamming_weighting: bool = True
-    hamming_ptr_main_lobe_widening_factor: float = 1.4705
+class SARParameters(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+    beamsamp_factor: int
+    hamming_weighting: bool
+    hamming_ptr_main_lobe_widening_factor: float
     look_angles: Optional[np.ndarray] = None
     doppler_frequencies: Optional[np.ndarray] = None
     span: Optional[np.ndarray] = None

@@ -22,7 +22,7 @@ __all__ = [
 # is set up correctly before the parsing of the resource files (Platform Presets, Lookup Tables)
 from samosa_waveform_model._package import PACKAGE_DIR, RESOURCE_DIR, VERSION
 __version__ = VERSION
-__PACKAGE_DIR = PACKAGE_DIR
+__PACKAGE_DIR__ = PACKAGE_DIR
 __RESOURCE_DIR__ = RESOURCE_DIR
 __LUT_DIR__ = RESOURCE_DIR / "lut"
 
@@ -30,3 +30,4 @@ from samosa_waveform_model.enums import WaveformModelEngines
 from samosa_waveform_model.datamodels import SensorParameters, SARParameters, PlatformLocation
 from samosa_waveform_model.samosaplus import ScenarioData, WaveformModelParameters, SAMOSAWaveformModel
 from samosa_waveform_model.lut import SAMOSA_MODEL_TERMS_LUT, ALPHA_POWER_PTR_LUTS
+from samosa_waveform_model.presets import SENSOR_PRESETS, ORBIT_EXAMPLE, SurfaceTypeLead, SurfaceTypeSeaIce

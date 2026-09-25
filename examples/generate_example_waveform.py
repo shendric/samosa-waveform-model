@@ -10,7 +10,7 @@ __author__ = "Stefan Hendricks <stefan.hendricks@awi.de>"
 import matplotlib.pyplot as plt
 
 from samosa_waveform_model import SAMOSAWaveformModel, ScenarioData
-from samosa_waveform_model.scenarios import SurfaceTypeLead, SurfaceTypeSeaIce
+from samosa_waveform_model.presets import SurfaceTypeLead, SurfaceTypeSeaIce
 
 
 def main():
