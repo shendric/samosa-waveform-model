@@ -1,0 +1,35 @@
+# This is the sensor preset file for CryoSat-2 ICE products with Hamming applied
+platform: cryosat2
+sensor: siral
+radar_modes:
+    - name: sar
+      sensor_parameters:
+          pulses_per_burst: 64
+          range_gates_per_pulse: 128
+          zero_padding_factor: 2
+          pulse_repetition_frequency: 18181.8181818181
+          burst_repetition_interval: 0.0117929625
+          frequency: 13.575e9
+          bandwidth: 320e6
+          alpha_power_ddm: 0.47356
+          alpha_power_ptr: 0.42349
+          beam_width_along: 0.019198621771937627  # np.deg2rad(1.10)
+          beam_width_across: 0.02129301687433082  # np.deg2rad(1.22)
+      sar_parameters: &cryosat2_sar_parameters
+          beamsamp_factor: 1
+          hamming_weighting: True
+          hamming_ptr_main_lobe_widening_factor: 1.4705
+    - name: sin
+      sensor_parameters:
+          pulses_per_burst: 64
+          range_gates_per_pulse: 512
+          zero_padding_factor: 2
+          pulse_repetition_frequency: 18181.8181818181
+          burst_repetition_interval: 0.0117929625
+          frequency: 13.575e9
+          bandwidth: 320e6
+          alpha_power_ddm: 0.47356
+          alpha_power_ptr: 0.42349
+          beam_width_along: 0.019198621771937627  # np.deg2rad(1.10)
+          beam_width_across: 0.02129301687433082  # np.deg2rad(1.22)
+      sar_parameters: *cryosat2_sar_parameters

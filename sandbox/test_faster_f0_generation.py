@@ -8,10 +8,9 @@ __author__ = "Stefan Hendricks <stefan.hendricks@awi.de>"
 import numpy as np
 from pathlib import Path
 from pandas import read_csv
-import matplotlib.pyplot as plt
 
 from samosa_waveform_model.dataclasses import CONSTANTS
-from samosa_waveform_model.lut import __LUT_PATH__, SAMOSA_MODEL_TERMS_LUT
+from samosa_waveform_model.lut.lut import __LUT_PATH__, SAMOSA_MODEL_TERMS_LUT
 
 
 __THIS_DIR__ = Path(__file__).parent

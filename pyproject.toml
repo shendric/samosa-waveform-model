@@ -28,7 +28,8 @@ dependencies = [
     "bottleneck",
     "numpy",
     "pandas",
-    "pydantic"
+    "pydantic",
+    "scipy"
 ]
 
 [project.optional-dependencies]
@@ -48,4 +49,4 @@ dev = [
 where = ["src"]
 
 [tool.setuptools.package-data]
-"samosa_waveform_model.lut" = ["*.txt", "*.csv", "*.md"]
+"samosa_waveform_model.resources" = ["*.txt", "*.csv", "*.md", "*.yaml"]

@@ -12,30 +12,63 @@ import pandas as pd
 import numpy as np
 
 from pydantic import BaseModel
-from typing import Dict, Optional, Tuple, Union, Literal
+from dataclasses import dataclass
+from typing import Dict, Optional, Tuple, Union, Literal, List
 
+from samosa_waveform_model.constants import CONSTANTS
 from samosa_waveform_model.enums import WaveformModelEngines
-from samosa_waveform_model.dataclasses import (SensorParameters, PlatformLocation, SARParameters,
-                                               CONSTANTS, WaveformModelOutput, WaveformModelParameters)
+from samosa_waveform_model.datamodels import SensorParameters, PlatformLocation, SARParameters
 from samosa_waveform_model.lut import SAMOSA_MODEL_TERMS_LUT, ALPHA_POWER_PTR_LUTS
 
 
-from samosa_waveform_model.funcs_py import (compute_gl, compute_gamma0, compute_t_kappa, ddm_mask_ranges)
+
+@dataclass
+class WaveformModelParameters:
+    """
+    Data class for the background of the waveform model.
+
+    NOTE: The parameter standard deviation are the result of
+    waveform model optimization process and will remain empty
+    for the forward model. These are included here because the
+    waveform fitting procedure in pysiral relies on this dataclass.
+    """
+    epoch: Optional[float] = None  # The epoch in seconds
+    epoch_sdev: Optional[float] = None
+    significant_wave_height: Optional[float] = None
+    significant_wave_height_sdev: Optional[float] = None
+    nu: float = 0.0
+    nu_sdev: Optional[float] = None
+    amplitude_scale: float = 1.0
+    thermal_noise: float = 0.0
+
+    @property
+    def mean_square_slope(self) -> float:
+        try:
+            return 1. / self.nu
+        except ZeroDivisionError:
+            return np.inf
+
+    @property
+    def args_list(self) -> List[Optional[float]]:
+        return [self.epoch, self.significant_wave_height, self.nu]
 
 
-# try:
-#     from samosa_waveform_model.funcs import (compute_gl, compute_gamma0, compute_t_kappa, compute_f0, compute_f1,
-#                                             ddm_mask_ranges)
-# except ImportError:
-#     msg = """
-#     Could not import the compiled functions for the SAMOSA+ waveform model.
-#     Please install the compiled functions module func by running
-#     'python setup.py build_ext --inplace
-#     -> Using python implementation instead
-#     """
-#     warnings.warn(msg)
-#     from samosa_waveform_model.funcs_py import (compute_gl, compute_gamma0, compute_t_kappa, compute_f0, compute_f1,
-#                                             ddm_mask_ranges)
+@dataclass
+class WaveformModelOutput:
+    """
+    Output of the SAMOSA waveform model
+    """
+    tau: np.ndarray
+    power: np.ndarray
+    peak_power: float
+    delay_doppler_map: np.ndarray
+    delay_doppler_map_masked: np.ndarray
+    epoch: float
+    significant_wave_height: float
+    mean_square_slope: float
+    amplitude_scale: float
+    gamma_0: np.ndarray
+
 
 
 class ScenarioData(object):
@@ -496,3 +529,114 @@ class SAMOSAWaveformModel(object):
 
     def get_fit_params(self) -> Optional[pd.DataFrame]:
         return pd.DataFrame(self.fit_params.fit_params) if self.fit_params.collect_fit_params else None
+
+
+def compute_gamma0(alpha_y, yp, alpha_x, nu, alt, xl, xp, yk):
+    xl_ = xl[None, :]
+    yk_ = yk[:, None]
+    alt2 = alt ** 2
+    return np.exp(
+        -alpha_y * yp ** 2 - alpha_x * (xl_ - xp) ** 2 - xl_ ** 2 * nu / alt2 -
+        (alpha_y + nu / alt2) * yk_ ** 2) * np.cosh(2. * alpha_y * yp * yk_)
+
+
+def compute_t_kappa(z, dk, nu, alt, alpha_y, yp, ly):
+    # TODO: Can dimension be inferred from other parameter
+    # TODO: dk_positive_idx and dk_negative_idx has been computed before, can be passed as parameter
+    t_kappa = np.zeros(np.shape(z))
+    dk_positive = dk > 0
+    dk_positive_idx = np.where(dk_positive)
+    dk_negative_idx = np.where(np.logical_not(dk_positive))
+    dk_positive_sqrt = np.sqrt(dk[dk_positive_idx])
+    t_kappa[dk_positive_idx, :] = (
+            (1. + nu / ((alt ** 2) * alpha_y)) - yp / (ly * dk_positive_sqrt) *
+            np.tanh(2. * alpha_y * yp * ly * dk_positive_sqrt)[None, :]).T
+    t_kappa[dk_negative_idx, :] = (1. + nu / ((alt ** 2) * alpha_y)) - 2. * alpha_y * yp ** 2
+    return t_kappa
+
+
+def compute_gl(
+        alpha_p: float,
+        lx: float,
+        ly: float,
+        lz: float,
+        beam_idx: np.ndarray,
+        ls: float,
+        swh: float
+) -> np.ndarray:
+    """
+    Equation 3.8 in Dinardo, 2020 with expressing "sigma_z = SWH/4" and adding a sign
+    function to deal with negative significant waveheight (that is introduced in
+    another notation in equation 3.12.)
+
+    :param alpha_p: The scaling parameter for the range PTR?
+    :param lx: along-track resolution
+    :param ly: pulse-limted radius
+    :param lz: vertical resolution
+    :param beam_idx: Doppler beam index
+    :param ls: Doppler beam slope (? TBC)
+    :param swh: significant waveheight
+
+    :return: gl (equation 3.8 in Dinardo, 2020) for each beam index
+    """
+    return 1. / np.sqrt(
+        alpha_p ** 2 + 4. * (alpha_p ** 2) * (lx / ly) ** 4 * (beam_idx - ls) ** 2 + np.sign(swh) * (swh / (4. * lz)) ** 2
+    )
+
+
+def ddm_mask_ranges(
+        ddm: np.ndarray,
+        mask_ranges: Optional[np.ndarray],
+        geo: PlatformLocation,
+        lx: float,
+        span: Tuple[np.ndarray],
+        dr: float,
+        beam_index: np.ndarray
+) -> np.ndarray:
+    """
+    Mask the delay dopper model according to section 3.2.2.e in Dinardo, 2020. This is done
+    for consistency between the model and the actual stack data, which is not completely filled
+    due the limited range window of the altimeter.
+
+    This masking a negligible effect on peaky waveforms, but is relevant for diffuse sea ice
+    waveforms, where the impact of the masking is a faster decay of the trailing edge towards
+    zero.
+
+    Another effect is the trailing edge of the waveform from the masked delay dopper model
+    may develop discontinous jumps especially in cases without many looks (for example
+    if the beamsamp factor is set to 1)
+
+    :param ddm: (unmasked) delay dopper model
+    :param mask_ranges: mask ranges
+    :param geo: Platform location (includes altitude and kappa factor)
+    :param lx: along-track resolution
+    :param span: indices of duplicated doppler beam indices
+        (only required when mask_ranges is not None, see SARParameters.span)
+    :param dr: range resolution (including zero-padding)
+    :param beam_index: Doppler beam index (May differ from all doppler beams
+        due to doppler beam decimation, see dataclasses.SARParameters._compute_beam_index)
+
+    return: Masked delay dopper model (same dimension as input delay dopper model)
+    """
+
+    # Estimate the total range shift for each doppler beam if no mask is provided
+    # NOTE: The source of the mask range is likely the higher level altimetry data
+    #       and was never specified in the SAMPy code.
+    if mask_ranges is None:
+        mask_ranges_demin = geo.altitude * (np.sqrt(1 + (geo.kappa * ((lx * beam_index) / geo.altitude) ** 2)) - 1)
+    else:
+        mask_ranges = np.delete(mask_ranges, span)
+        mask_ranges_demin = mask_ranges - min(mask_ranges)
+
+    num_range_gates = ddm.shape[0]
+
+    # r is "\Delta R_l" (total range shift = sum of slant range shift, tracker range shift and doppler range shift)
+    r = np.tile(mask_ranges_demin, (num_range_gates, 1))
+
+    # dr_tiled is "$R_k" (equation 3.31 in Dinardo et al., 2020)
+    dr_tiled = np.tile(dr * np.arange(num_range_gates - 1, -1, -1), (len(beam_index), 1)).T
+
+    ddm_masked = ddm.copy()
+    ddm_masked[np.where(r >= dr_tiled)] = 0.0
+
+    return ddm_masked
