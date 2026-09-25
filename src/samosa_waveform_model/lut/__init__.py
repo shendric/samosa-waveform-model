@@ -10,8 +10,16 @@ are not loaded multiple times for repeated calls to the waveform model during wa
 __author__ = "Stefan Hendricks <stefan.hendricks@awi.de>"
 __all__ = ["SAMOSA_MODEL_TERMS_LUT", "ALPHA_POWER_PTR_LUTS"]
 
+
+import os
+import numpy as np
 from samosa_waveform_model.lut.alpha_power_ptr import AlphaPowerPTRTableCatalogue
 from samosa_waveform_model.lut.model_terms import SAMOSAModelTermsTable
 
-SAMOSA_MODEL_TERMS_LUT = SAMOSAModelTermsTable.from_package_luts()
-ALPHA_POWER_PTR_LUTS = AlphaPowerPTRTableCatalogue.from_package()
+# Load the lookup tables from the package's lut folder, unless for specific software test
+if not os.environ.get('SAMOSA_WAVEFORM_MODEL_NO_AUTOLOAD', False):
+    SAMOSA_MODEL_TERMS_LUT = SAMOSAModelTermsTable.from_package()
+    ALPHA_POWER_PTR_LUTS = AlphaPowerPTRTableCatalogue.from_package()
+else:
+    SAMOSA_MODEL_TERMS_LUT = SAMOSAModelTermsTable(np.array([]), np.array([]), np.array([]))
+    ALPHA_POWER_PTR_LUTS = AlphaPowerPTRTableCatalogue({})

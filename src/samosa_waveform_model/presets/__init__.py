@@ -8,13 +8,14 @@ These presets can be used for testing and tutorials.
 
 __author__ = "Stefan Hendricks <stefan.hendricks@awi.de>"
 __all__ = [
-    "sensor_presets.py",
-    "surface_presets.py",
-    "orbit_presets.py",
+    "sensor_presets",
+    "surface_presets",
+    "orbit_presets",
     "ORBIT_EXAMPLE",
     "SENSORS_PRESETS",
     "SurfaceTypeLead",
     "SurfaceTypeSeaIce"
+
 ]
 
 from samosa_waveform_model.presets.orbit_presets import ORBIT_EXAMPLE

@@ -5,6 +5,7 @@
 
 __author__ = "Stefan Hendricks <stefan.hendricks@awi.de>"
 
+import os
 import yaml
 from typing import Tuple, Dict
 from samosa_waveform_model import __RESOURCE_DIR__
@@ -67,5 +68,8 @@ class SensorPresets(object):
         return self.presets.get((sensor_type, sensor_name), None)
 
 
-SENSORS_PRESETS = SensorPresets.from_package()
-breakpoint()
+# Load the sensor presets from the package's resource directory, unless for specific software test
+if not os.environ.get('SAMOSA_WAVEFORM_MODEL_NO_AUTOLOAD', False):
+    SENSORS_PRESETS = SensorPresets.from_package()
+else:
+    SENSORS_PRESETS = SensorPresets({})

@@ -39,7 +39,7 @@ class SAMOSAModelTermsTable(object):
         self.f1_lut = f1
 
     @classmethod
-    def from_package_luts(cls) -> "SAMOSAModelTermsTable":
+    def from_package(cls) -> "SAMOSAModelTermsTable":
         """
         Load the SAMOSA model terms lookup tables from the package's lut folder.
 
