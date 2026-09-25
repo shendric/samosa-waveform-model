@@ -32,6 +32,8 @@ class SensorParameters(BaseModel):
     alpha_power_ptr: float  # The alpha power for the PTR constant scaling
     num_look_min: float
     num_look_max: float
+    beamsamp_factor: int
+
     # The default value of 1.0 leads to a fairly small number of doppler cells in the delay-doppler map (DDM).
     # If DDM mask is activated (by default), then the waveform may become choppy.
 
@@ -60,7 +62,6 @@ class SensorParameters(BaseModel):
 
 class SARParameters(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
-    beamsamp_factor: int
     hamming_weighting: bool
     hamming_ptr_main_lobe_widening_factor: float
     look_angles: Optional[np.ndarray] = None

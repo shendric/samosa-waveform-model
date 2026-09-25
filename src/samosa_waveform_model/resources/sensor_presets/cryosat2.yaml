@@ -17,8 +17,8 @@ radar_modes:
           alpha_power_ptr: 0.42349
           num_look_min: -90
           num_look_max: 90
-      sar_parameter: &cryosat2_sar_parameters
           beamsamp_factor: 2
+      sar_parameter: &cryosat2_sar_parameters
           hamming_weighting: True
           hamming_ptr_main_lobe_widening_factor: 1.4705
     - name: sin
@@ -36,5 +36,6 @@ radar_modes:
           alpha_power_ptr: 0.42349
           num_look_min: -90
           num_look_max: 90
+          beamsamp_factor: 2
       sar_parameter:
         <<: *cryosat2_sar_parameters

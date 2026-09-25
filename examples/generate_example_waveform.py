@@ -9,8 +9,8 @@ __author__ = "Stefan Hendricks <stefan.hendricks@awi.de>"
 
 import matplotlib.pyplot as plt
 
-from samosa_waveform_model import SAMOSAWaveformModel, ScenarioData
-from samosa_waveform_model.presets import SurfaceTypeLead, SurfaceTypeSeaIce
+from samosa_waveform_model import SAMOSAWaveformModel
+from samosa_waveform_model.presets import get_scenario_preset, SurfaceTypeLead, SurfaceTypeSeaIce
 
 
 def main():
@@ -20,8 +20,8 @@ def main():
 
     # Initialize the SAMOSA waveform model with sensor
     # definition, orbit parameters and SAR options
-    scenario_data = ScenarioData.cryosat2_sar_example()
-    waveform_model = SAMOSAWaveformModel("samosa", scenario_data)
+    scenario_data = get_scenario_preset(platform="cryosat2", mode="sar")
+    waveform_model = SAMOSAWaveformModel("samosa+", scenario_data)
 
     # Compute waveform based on epoch, swh, mss
     model_input = SurfaceTypeLead()

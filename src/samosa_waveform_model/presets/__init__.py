@@ -8,6 +8,7 @@ These presets can be used for testing and tutorials.
 
 __author__ = "Stefan Hendricks <stefan.hendricks@awi.de>"
 __all__ = [
+    "get_scenario_preset",
     "sensor_presets",
     "surface_presets",
     "orbit_presets",
@@ -18,44 +19,33 @@ __all__ = [
 
 ]
 
+from typing import Optional
+
+from samosa_waveform_model.samosaplus import ScenarioData
+from samosa_waveform_model.datamodels import PlatformLocation
 from samosa_waveform_model.presets.orbit_presets import ORBIT_EXAMPLE
 from samosa_waveform_model.presets.sensor_presets import SENSORS_PRESETS
 from samosa_waveform_model.presets.surface_presets import SurfaceTypeLead, SurfaceTypeSeaIce
 
-#
-# @classmethod
-#     def cryosat2_sar_example(
-#             cls,
-#             loc_parameters: Optional[Dict] = None
-#     ):
-#         """ Real life CryoSat-2 lead example """
-#
-#         loc_parameters = {} if loc_parameters is None else loc_parameters
-#
-#         # Radar altimeter parameters
-#         sp, sar = SENSORS_PRESETS.get_presets("cryosat2", "sar")
-#         # Example position/attitude
-#         # example_loc = dict(latitude=83.9625006,
-#         #                    longitude=27.407605,
-#         #                    altitude=728518.615,
-#         #                    height_rate=0.466,
-#         #                    pitch=-0.0010057948506807881,
-#         #                    roll=-0.0015263707160146328,
-#         #                    velocity=7518.711587141643)
-#
-#         loc_dict = dict(
-#             latitude=83.9625006,
-#             longitude=27.407605,
-#             altitude=728518.615,
-#             height_rate=0.,
-#             pitch=0.,
-#             roll=0.,
-#             velocity=7518.711587141643
-#         )
-#         loc_dict.update(loc_parameters)
-#
-#         geo = PlatformLocation(**loc_dict)
-#         sar = SARParameters()
-#         sar.compute_multi_look_parameters(geo=geo, sp=sp)
-#
-#         return cls(sp, geo, sar)
+
+
+def get_scenario_preset(
+        platform: str,
+        mode: str,
+        geo_params: Optional[PlatformLocation] = None
+) -> ScenarioData:
+    """
+    Retrieve a preset scenario for a given platform and radar mode and
+    a default orbit scenario (which can be overridden by providing a custom PlatformLocation object).
+
+    :param platform: The platform name (e.g., "cryosat2").
+    :param mode: The radar mode name (e.g., "sar").
+    :param geo_params: The geographic parameters (e.g., platform location).
+        If None, the default ORBIT_EXAMPLE will be used.
+
+    :return: The ScenarioData input data model for the SAMOSA waveform model.
+    """
+    geo_params = geo_params if isinstance(geo_params, PlatformLocation) else ORBIT_EXAMPLE
+    sensor_params, sar_params = SENSORS_PRESETS.get_preset(platform, mode)
+    sar_params.compute_multi_look_parameters(geo_params, sensor_params)
+    return ScenarioData(sensor_params, geo_params, sar_params)

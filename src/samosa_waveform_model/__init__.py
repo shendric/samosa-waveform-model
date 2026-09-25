@@ -30,4 +30,4 @@ from samosa_waveform_model.enums import WaveformModelEngines
 from samosa_waveform_model.datamodels import SensorParameters, SARParameters, PlatformLocation
 from samosa_waveform_model.samosaplus import ScenarioData, WaveformModelParameters, SAMOSAWaveformModel
 from samosa_waveform_model.lut import SAMOSA_MODEL_TERMS_LUT, ALPHA_POWER_PTR_LUTS
-from samosa_waveform_model.presets import SENSOR_PRESETS, ORBIT_EXAMPLE, SurfaceTypeLead, SurfaceTypeSeaIce
+from samosa_waveform_model.presets import SENSORS_PRESETS, ORBIT_EXAMPLE, SurfaceTypeLead, SurfaceTypeSeaIce
