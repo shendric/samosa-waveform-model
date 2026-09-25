@@ -145,6 +145,5 @@ class SARParameters(BaseModel):
             dfa: float
     ) -> None:
         beam_index = np.around(beamsamp_factor * self.doppler_frequencies / dfa) / beamsamp_factor
-        print(f"beam_index: {beam_index.size}")
         self.span = np.where(np.diff(beam_index, axis=0) == 0)
         self.beam_index = np.delete(beam_index, self.span)
