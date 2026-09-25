@@ -12,12 +12,12 @@ import pandas as pd
 import numpy as np
 
 from pydantic import BaseModel
-from typing import Dict, Optional, Tuple, Union
+from typing import Dict, Optional, Tuple, Union, Literal
 
 from samosa_waveform_model.enums import WaveformModelEngines
 from samosa_waveform_model.dataclasses import (SensorParameters, PlatformLocation, SARParameters,
                                                CONSTANTS, WaveformModelOutput, WaveformModelParameters)
-from samosa_waveform_model.lut import SAMOSA_MODEL_TERMS_LUT
+from samosa_waveform_model.lut import SAMOSA_MODEL_TERMS_LUT, ALPHA_POWER_PTR_LUTS
 
 
 from samosa_waveform_model.funcs_py import (compute_gl, compute_gamma0, compute_t_kappa, ddm_mask_ranges)
@@ -112,40 +112,70 @@ class ScenarioData(object):
 
     def get_alpha_power(
             self,
-            engine: WaveformModelEngines,
+            engine: Literal[WaveformModelEngines.SAMOSA, WaveformModelEngines.SAMOSAPLUS],
             swh: Optional[float] = None
     ) -> Tuple[float, float]:
         """
+        Get the alpha power values for the delay doppler map scaling and the range PTR estimation.
 
-        # TODO: A lot
+        Notes to the use of `alpha_p` (`alpha_power_ptr`) and `alpha_power` (`alpha_power_ddm`)
+        in SAMPy and this project:
 
-        :param engine:
-        :param swh:
+        In the formulas in Dinardo 2020, there is just on alpha_p. Here, in the code
+        the alpha_p goes into the computation of gl and alpha_power goes into
+        the scaling factor for delay doppler map. The parameter `alpha_p` goes into compute_gl and
+        `alpha_power` goes into the constant factor for the delay doppler map.
 
-        :return:
+        According to a code comment in pysamosa (https://pypi.org/project/pysamosa/),
+        `alpha_power` is an average and constant values which should be used for the
+        delay doppler map scaling factor (thus the alpha_power lookup table in SAMPy
+        only includes a singular alpha power value and is the same for Hamming and no Hamming).
+        -> Renamed here to `alpha_power_ddm` and lookup table is no longer used in this project.
+
+        `alpha_p`instead may vary as function of significant waveheight.
+        But when zero-padding is applied, then alpha_p may also be constant
+        value (section 3.2.3 in Dinardo et al. 2020, with a fixed value of 0.55).
+        Nevertheless, SAMPy sets `alpha_p` to 0.42349 for SAMOSA+.
+        But since the SAMOSA+ retracker uses SAMOSA (with nu set to zero) for the
+        significant waveheight step, a lookup table for `alpha_p` is required
+        for both Hamming and no-Hamming configurations.
+        -> Renamed here to `alpha_power_ptr` (for the range PTR)
+
+        :param engine: The waveform model engine to use (SAMOSA or SAMOSA+)
+        :param swh: The significant wave height (SWH) required for the alpha power lookup table. Not needed
+            for the SAMOSA+ engine, where a fixed alpha power value is used from the sensor configuration
+            :parameter
+
+        :raises ValueError: If the engine is not recognized or if the SWH is not provided for the SAMOSA engine.
+
+        :return: A tuple of (alpha_power_ptr, alpha_power_ddm).
         """
+
+        # If Hamming weighting is used, the DDM alpha power values is
+        # the same for SAMOSA and SAMOSA+
+        alpha_power_ddm = self.rp.alpha_power_ddm
+
         if self.sar.hamming_weighting:
-            alpha_power_ddm = self.rp.alpha_power_ddm
+
             match engine:
+
+                # [SAMOSA & hamming]: Get alpha power values for the range PTR estimation
+                # from the lookup table for the SAMOSA engine
                 case WaveformModelEngines.SAMOSA:
-                    raise NotImplementedError("New SAMOSA alpha power lookup table not implemented yet")
-                    ind = bn.nanargmin(abs(self.lut.alphap_weight[:, 0] - swh))
-                    alpha_power_ptr = self.lut.alphap_weight[:, 1][ind]
+                    alpha_power_ptr = ALPHA_POWER_PTR_LUTS.get(self.rp.platform, swh, hamming=True)
+
+                # [SAMOSA+ & hamming]: Get alpha power values for the range PTR estimation
+                # from the sensor configuration
                 case WaveformModelEngines.SAMOSAPLUS:
                     alpha_power_ptr = self.rp.alpha_power_ptr
+
                 case _:
                     raise ValueError(f"Unknown waveform model engine: {engine}")
-        else:
-            alpha_power_ptr, alpha_power_ddm = self.get_alpha_power_no_weights(swh)
-        return alpha_power_ptr, alpha_power_ddm
 
-    def get_alpha_power_no_weights(self, swh):
-        # TODO: To be confirmed (and renamed) that weights means Hamming weighting
-        raise NotImplementedError("New SAMOSA alpha power lookup table for no weighting not implemented yet")
-        ind = np.argmin(abs(self.lut.alphap_noweight[:, 0] - swh))
-        alpha_power_ptr = self.lut.alphapower_noweight[:, 1][ind]
-        ind = np.argmin(abs(self.lut.alphapower_noweight[:, 0] - swh))
-        alpha_power_ddm = self.lut.alphapower_noweight[:, 1][ind]
+        # No Hamming
+        else:
+            alpha_power_ptr = ALPHA_POWER_PTR_LUTS.get(self.rp.platform, swh, hamming=False)
+
         return alpha_power_ptr, alpha_power_ddm
 
 
@@ -377,9 +407,9 @@ class SAMOSAWaveformModel(object):
         if self.engine == WaveformModelEngines.SAMOSA:
             # For SAMOSA engine, nu must be set to 0 (infinite diffusive surface)
             try:
-                assert nu < 1e-12, "For SAMOSA engine, nu must be set to 0 (infinite diffusive surface)"
+                assert nu < 1e-12, "SAMOSA: nu must be 0 (infinite diffusive surface)"
             except AssertionError as e:
-                warn(f"{e}. Setting nu to 0 for SAMOSA engine.")
+                warn(f"{e} -> Forcing nu to 0.")
                 nu = 0.0
 
         # --- Collect the waveform model parameters if requested ---
@@ -398,36 +428,7 @@ class SAMOSAWaveformModel(object):
         # surface elevation standard deviation
         sigma_z = (swh / 4.)
 
-
-        """
-        Notes to the use of `alpha_p` and `alpha_power`: 
-        
-        In the formulas in Dinardo 2020, there is just on alpha_p. Here, in the code
-        the alpha_p goes into the computation of gl and alpha_power goes into
-        the scaling factor for delay doppler map.
-        
-        The reason for the two alpha_power factor could be that one is
-        for the range and one for the azimuth PTR.
-        
-        The parameter `alpha_p` goes into compute_gl and `alpha_power` goes into
-        the constant factor for the delay doppler map. 
-        
-        According to a code comment in pysamosa (https://pypi.org/project/pysamosa/), 
-        `alpha_power` is an average and constant values which should be used for the 
-        delay dopper map scaling factor (thus the alpha_power lookup table in SAMPy
-        only includes a singular alpha power value and is the same for Hamming and no Hamming).
-        -> Renamed here to `alpha_power_ddm`
-        
-        `alpha_p`instead may vary as function of significant waveheight. 
-        But when zero-padding is applied, than alpha_p may also be constant 
-        value (section 3.2.3 in Dinardo et al. 2020, with a fixed value of 0.55). 
-        Nevertheless, SAMPy sets `alpha_p` to 0.42349 for SAMOSA+. 
-        But since the SAMOSA+ retracker uses SAMOSA (with nu set to zero) for the 
-        significant waveheight step, an lookup table for `alpha_p` is required 
-        for both Hamming and no-Hamming configurations.
-        -> Renamed here to `alpha_power_ptr` (for the range PTR)
-        """
-
+        # Get the alpha power values for the delay doppler map scaling and the range PTR estimation
         alpha_power_ptr, alpha_power_ddm = self.scenario.get_alpha_power(self.engine, swh)
 
         gl = compute_gl(alpha_power_ptr, p["lx"], p["ly"], p["lz"], beam_index, p["ls"], swh)

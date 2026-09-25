@@ -6,7 +6,7 @@ A test/development script for the sampy sea ice conversion
 
 __author__ = "Stefan Hendricks <stefan.hendricks@awi.de>"
 
-import numpy as np
+
 import matplotlib.pyplot as plt
 
 from samosa_waveform_model import SAMOSAWaveformModel, ScenarioData
@@ -21,12 +21,11 @@ def main():
     # Initialize the SAMOSA waveform model with sensor
     # definition, orbit parameters and SAR options
     scenario_data = ScenarioData.cryosat2_sar_example()
-    waveform_model = SAMOSAWaveformModel("samosa+", scenario_data)
+    waveform_model = SAMOSAWaveformModel("samosa", scenario_data)
 
     # Compute waveform based on epoch, swh, mss
     model_input = SurfaceTypeLead()
     model_result = waveform_model.generate_delay_doppler_waveform(model_input)
-
 
     plt.figure(dpi=150, figsize=(5, 5))
     plt.plot(model_result.tau, model_result.power)

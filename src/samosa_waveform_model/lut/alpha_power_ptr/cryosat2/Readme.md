@@ -11,8 +11,8 @@ The original filenames are listed below:
 
 | New Filename | Original Filename |
 |-------------------|--------------|
-| `alpha_power_cryosat2_hamming.csv` | `alphap_table_DX3000_ZP20_SWH20_10_Sept_2019(CS2_HAMMING).txt` |
-| `alpha_power_cryosat2_nohamming.csv` | `alphap_table_DX3000_ZP20_SWH20_10_Sept_2019(CS2_NO_HAMMING).txt` |
+| `alpha_power_ptr_cryosat2_hamming.csv` | `alphap_table_DX3000_ZP20_SWH20_10_Sept_2019(CS2_HAMMING).txt` |
+| `alpha_power_ptr_cryosat2_nohamming.csv` | `alphap_table_DX3000_ZP20_SWH20_10_Sept_2019(CS2_NO_HAMMING).txt` |
 
 
 ## Removed Tables
